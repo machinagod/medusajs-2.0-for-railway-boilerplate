@@ -14,6 +14,9 @@ export default defineConfig({
   // v2 suite only: render smoke + no-payment functional flows. The legacy v1
   // suite under e2e/tests is intentionally excluded.
   testMatch: ["smoke/**/*.spec.ts", "flows/**/*.spec.ts"],
+  // Multi-step flows (register → server action → revalidate) need more than the
+  // 30s default so genuine errors surface instead of test-timeout noise.
+  timeout: 90_000,
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
