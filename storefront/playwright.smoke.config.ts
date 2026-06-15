@@ -10,7 +10,10 @@ import "dotenv/config.js"
  * renders and serves the backend's catalog, and the admin loads.
  */
 export default defineConfig({
-  testDir: "./e2e/smoke",
+  testDir: "./e2e",
+  // v2 suite only: render smoke + no-payment functional flows. The legacy v1
+  // suite under e2e/tests is intentionally excluded.
+  testMatch: ["smoke/**/*.spec.ts", "flows/**/*.spec.ts"],
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
