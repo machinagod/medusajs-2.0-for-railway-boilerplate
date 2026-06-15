@@ -39,6 +39,9 @@ jobs:
 
     env:
       # ── Backend ──────────────────────────────────────────────────────────
+      # development here so pnpm installs devDependencies (build tooling) and the
+      # backend behaves like local dev. The storefront *build/start* override to
+      # production per-step (next build breaks under NODE_ENV=development).
       NODE_ENV: development
       DATABASE_URL: postgres://test_medusa_user:test_pw@localhost:5432/test_medusa_db
       JWT_SECRET: supersecret
@@ -121,10 +124,15 @@ jobs:
       - name: Build storefront
         working-directory: storefront
         # launch-storefront waits for the backend and resolves the publishable key.
+        # Must be production — next build breaks the /500 prerender under development.
+        env:
+          NODE_ENV: production
         run: pnpm build
 
       - name: Start storefront
         working-directory: storefront
+        env:
+          NODE_ENV: production
         run: |
           nohup pnpm start > /tmp/storefront.log 2>&1 &
           npx --yes wait-on -t 180000 http://localhost:8000
