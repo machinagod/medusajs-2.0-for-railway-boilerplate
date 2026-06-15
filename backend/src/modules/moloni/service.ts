@@ -35,7 +35,7 @@ export default class MoloniModuleService extends MedusaService({
   static identifier = "moloni"
 
   protected readonly logger_: Logger
-  protected readonly client_: MoloniClient
+  protected readonly clientPromise_: Promise<MoloniClient>
   protected readonly companyId_: number
 
   constructor(container: any, options: MoloniModuleOptions) {
@@ -57,7 +57,9 @@ export default class MoloniModuleService extends MedusaService({
     }
 
     this.companyId_ = options.companyId
-    this.client_ = createMoloniClient(
+    // The published client is an ESM-only package; load it via dynamic import
+    // (the module is built to CJS). Created once, awaited by each reader.
+    this.clientPromise_ = createMoloniClient(
       {
         clientId: options.clientId,
         clientSecret: options.clientSecret,
@@ -73,8 +75,8 @@ export default class MoloniModuleService extends MedusaService({
     return this.companyId_
   }
 
-  get client(): MoloniClient {
-    return this.client_
+  get client(): Promise<MoloniClient> {
+    return this.clientPromise_
   }
 
   // ── Sync cursors ─────────────────────────────────────────────────────────
@@ -126,6 +128,7 @@ export default class MoloniModuleService extends MedusaService({
    * Categories have no modified-since endpoint and are few, so always full.
    */
   async listAllCategories(): Promise<MoloniCategory[]> {
+    const client = await this.clientPromise_
     const all: MoloniCategory[] = []
     const queue: number[] = [0]
     const seenParents = new Set<number>()
@@ -138,7 +141,7 @@ export default class MoloniModuleService extends MedusaService({
       let offset = 0
       // eslint-disable-next-line no-constant-condition
       while (true) {
-        const page = await this.client_.productCategories<MoloniCategory[]>(
+        const page = await client.productCategories<MoloniCategory[]>(
           "getAll",
           { parent_id: parentId, offset }
         )
@@ -158,12 +161,13 @@ export default class MoloniModuleService extends MedusaService({
 
   /** Products modified since `since` (default epoch = all), paginated. */
   async listProducts(opts: FetchOptions = {}): Promise<MoloniProduct[]> {
+    const client = await this.clientPromise_
     const since = opts.since || EPOCH_CURSOR
     const all: MoloniProduct[] = []
     let offset = 0
     // eslint-disable-next-line no-constant-condition
     while (true) {
-      const page = await this.client_.products<MoloniProduct[]>(
+      const page = await client.products<MoloniProduct[]>(
         "getModifiedSince",
         { lastmodified: since, qty: PAGE_SIZE, offset }
       )
@@ -179,12 +183,13 @@ export default class MoloniModuleService extends MedusaService({
 
   /** Customers modified since `since` (default epoch = all), paginated. */
   async listCustomers(opts: FetchOptions = {}): Promise<MoloniCustomer[]> {
+    const client = await this.clientPromise_
     const since = opts.since || EPOCH_CURSOR
     const all: MoloniCustomer[] = []
     let offset = 0
     // eslint-disable-next-line no-constant-condition
     while (true) {
-      const page = await this.client_.customers<MoloniCustomer[]>(
+      const page = await client.customers<MoloniCustomer[]>(
         "getModifiedSince",
         { lastmodified: since, offset }
       )

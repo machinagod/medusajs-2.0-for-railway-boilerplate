@@ -12,6 +12,9 @@ importers:
 
   .:
     dependencies:
+      '@machinagod/moloni-client-ts':
+        specifier: npm:@jsr/machinagod__moloni-client-ts@0.1.1
+        version: '@jsr/machinagod__moloni-client-ts@0.1.1'
       '@medusajs/admin-sdk':
         specifier: 2.13.6
         version: 2.13.6
@@ -1535,6 +1538,9 @@ packages:
 
   '@js-sdsl/ordered-map@4.4.2':
     resolution: {integrity: sha512-iUKgm52T8HOE/makSxjqoWhe95ZJA1/G1sYsGev2JDKUSS14KAgg1LHb+Ba+IPow0xflbnSkOsZcO08C7w1gYw==}
+
+  '@jsr/machinagod__moloni-client-ts@0.1.1':
+    resolution: {integrity: sha512-AV3v1Cwmtjns5Z6BGSyaF1C6IJYtfazBfSGEbM1Ky+tWO8MTlNk8RBjyqcNc5AfMq43sHSnjTNhpTowxXvic8Q==, tarball: https://npm.jsr.io/~/11/@jsr/machinagod__moloni-client-ts/0.1.1.tgz}
 
   '@medusajs/admin-bundler@2.13.6':
     resolution: {integrity: sha512-BcTWzKfaJBrxHFGD7HRuDP79BLSbbHXXnfDOd6Q3U/H8Vi9Z/roiqpSKMixQTcklTFDEucMKXV8UzCUR9xsQmA==}
@@ -9945,6 +9951,8 @@ snapshots:
       '@jridgewell/sourcemap-codec': 1.5.5
 
   '@js-sdsl/ordered-map@4.4.2': {}
+
+  '@jsr/machinagod__moloni-client-ts@0.1.1': {}
 
   '@medusajs/admin-bundler@2.13.6(@types/node@20.19.25)(@types/react-dom@18.3.7(@types/react@18.3.27))(@types/react@18.3.27)(picomatch@4.0.3)(typescript@5.9.3)(yaml@2.8.0)':
     dependencies:
