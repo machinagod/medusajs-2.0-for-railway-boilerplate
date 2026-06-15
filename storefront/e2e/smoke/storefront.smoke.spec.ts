@@ -26,8 +26,11 @@ test("store lists products and a product page loads", async ({ page }) => {
   await productLink.click()
   await expect(page).toHaveURL(/\/products\//)
   // The product title heading proves the page resolved a real product from the
-  // backend (robust across single/multi-variant products).
-  await expect(page.locator("h1").first()).toBeVisible({ timeout: 30_000 })
+  // backend. The starter renders the title as a Heading (h2), so match any
+  // heading role rather than a specific tag.
+  await expect(page.getByRole("heading").first()).toBeVisible({
+    timeout: 30_000,
+  })
 })
 
 test("admin dashboard login renders", async ({ page }) => {
