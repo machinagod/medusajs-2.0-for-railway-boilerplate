@@ -85,6 +85,17 @@ Before committing, from each app you changed:
 
 Fix failures before committing — including pre-existing ones in files you touch.
 
+## Deploy & CI
+- **Deploy**: Railway's GitHub integration auto-deploys on push to `master`
+  (Backend & Storefront services are connected to this repo). On deploy,
+  `init-backend` runs DB migrations before the app starts.
+- **CI gate**: `.github/workflows/ci.yml` runs a full-stack Playwright e2e on an
+  ephemeral CI Postgres (never prod; no secrets). Railway "Wait for CI" (set in
+  the dashboard per service) blocks the deploy if CI is red. See
+  `.github/workflows/README.md`.
+- The `storefront/e2e` suite **drops/recreates its DB** — only ever point it at a
+  `test_`-prefixed DB, never the production `DATABASE_URL`.
+
 ## Conventions
 - This repo commits small config/fix changes directly to `master`.
 - Secrets live only in the gitignored `.env` / `.env.local` files — never commit them.
