@@ -30,6 +30,7 @@ import {
 } from "@medusajs/medusa/core-flows"
 import { MOLONI_MODULE } from "../../modules/moloni"
 import type MoloniModuleService from "../../modules/moloni/service"
+import { EPOCH_CURSOR } from "../../modules/moloni/service"
 import type { MoloniProduct } from "../../modules/moloni"
 import {
   EUR,
@@ -58,6 +59,11 @@ export interface MoloniSyncOptions {
   entities?: MoloniSyncEntity[]
   /** Override product status (defaults to draft). */
   productStatus?: "draft" | "published"
+  /**
+   * Ignore stored cursors and fetch everything (since epoch). Default false:
+   * the run is incremental once a cursor exists, full on the first run.
+   */
+  full?: boolean
 }
 
 export interface MoloniSyncReport {
@@ -230,22 +236,35 @@ export async function runMoloniSync(
   }
 
   // ── 2. Products (+ default EUR price on the single variant) ─────────────
-  const moloniProducts = entities.has("products") || entities.has("prices") || entities.has("stock")
-    ? await moloni.listAllProducts(options.limit)
+  const needProducts =
+    entities.has("products") || entities.has("prices") || entities.has("stock")
+  const runStart = new Date().toISOString()
+  const productsSince = options.full
+    ? EPOCH_CURSOR
+    : await moloni.getSyncCursor("products")
+  const moloniProducts = needProducts
+    ? await moloni.listProducts({ since: productsSince, limit: options.limit })
     : []
 
-  // moloni product_id -> { productId, variantId }
+  // moloni product_id -> { productId, variantId }. Only look up the products
+  // we actually fetched (keeps incremental runs cheap as the catalog grows).
   const variantByMoloni = new Map<
     number,
     { productId: string; variantId: string }
   >()
-  {
-    const existing = await graphAll(
-      query,
-      "product",
-      ["id", "external_id", "variants.id", "variants.sku"],
-      undefined
-    )
+  if (moloniProducts.length) {
+    const externalIds = moloniProducts.map((p) => String(p.product_id))
+    const existing: any[] = []
+    for (const ids of chunk(externalIds, 200)) {
+      existing.push(
+        ...(await graphAll(
+          query,
+          "product",
+          ["id", "external_id", "variants.id", "variants.sku"],
+          { external_id: ids }
+        ))
+      )
+    }
     for (const p of existing) {
       if (!p.external_id) continue
       const mid = Number(p.external_id)
@@ -353,9 +372,29 @@ export async function runMoloniSync(
     )
   }
 
+  // Advance the products cursor once products (and their derived prices/stock)
+  // are synced. Use the run start time so anything modified during the run is
+  // re-checked next time.
+  if (entities.has("products") && !dryRun) {
+    await moloni.setSyncCursor("products", runStart)
+  }
+
   // ── 5. Customers ────────────────────────────────────────────────────────
   if (entities.has("customers")) {
-    await syncCustomers(container, query, moloni, options.limit, dryRun, report, logger)
+    const customersSince = options.full
+      ? EPOCH_CURSOR
+      : await moloni.getSyncCursor("customers")
+    await syncCustomers(
+      container,
+      query,
+      moloni,
+      customersSince,
+      options.limit,
+      dryRun,
+      report,
+      logger
+    )
+    if (!dryRun) await moloni.setSyncCursor("customers", runStart)
   }
 
   logger.info(`[moloni-sync] done: ${JSON.stringify(report)}`)
@@ -595,26 +634,41 @@ async function syncCustomers(
   container: MedusaContainer,
   query: any,
   moloni: MoloniModuleService,
+  since: string,
   limit: number | undefined,
   dryRun: boolean,
   report: MoloniSyncReport,
   logger: any
 ) {
-  const moloniCustomers = await moloni.listAllCustomers(limit)
-
-  const existing = await graphAll(query, "customer", ["id", "email", "metadata"])
-  const byMoloniId = new Map<number, string>()
-  const byEmail = new Map<string, string>()
-  for (const c of existing) {
-    const mid = c.metadata?.moloni_customer_id
-    if (mid != null) byMoloniId.set(Number(mid), c.id)
-    if (c.email) byEmail.set(c.email.toLowerCase(), c.id)
+  const moloniCustomers = await moloni.listCustomers({ since, limit })
+  if (!moloniCustomers.length) {
+    logger.info("[moloni-sync] no modified customers")
+    return
   }
 
+  // Email is a deterministic unique key for every Moloni customer (real email,
+  // or the synthesized moloni-<number>@no-email.invalid placeholder), so we key
+  // idempotency on email — reliable, and avoids JSONB metadata filtering.
+  const desired = moloniCustomers.map((c) => ({
+    moloni: c,
+    input: toCreateCustomerInput(c),
+  }))
+  const emails = [...new Set(desired.map((d) => d.input.email))]
+  const existing: any[] = []
+  for (const batch of chunk(emails, 200)) {
+    existing.push(
+      ...(await graphAll(query, "customer", ["id", "email"], { email: batch }))
+    )
+  }
+  const idByEmail = new Map<string, string>()
+  for (const c of existing) {
+    if (c.email) idByEmail.set(c.email.toLowerCase(), c.id)
+  }
+
+  const seenInBatch = new Set<string>()
   const creates: { input: any; moloni: any }[] = []
-  for (const c of moloniCustomers) {
-    const input = toCreateCustomerInput(c)
-    const existingId = byMoloniId.get(c.customer_id)
+  for (const { input, moloni: c } of desired) {
+    const existingId = idByEmail.get(input.email)
     if (existingId) {
       if (!dryRun) {
         await updateCustomersWorkflow(container).run({
@@ -631,12 +685,12 @@ async function syncCustomers(
       report.customers.updated++
       continue
     }
-    if (byEmail.has(input.email)) {
-      // Email already taken by a different (non-Moloni-linked) customer.
+    if (seenInBatch.has(input.email)) {
+      // Two Moloni customers share the same email — create only the first.
       report.customers.skipped++
       continue
     }
-    byEmail.set(input.email, "pending")
+    seenInBatch.add(input.email)
     creates.push({ input, moloni: c })
   }
 

@@ -11,11 +11,14 @@ import {
  * POSITIONAL args (no `--`):
  *
  *   npx medusa exec ./src/scripts/sync-moloni.ts                       # DRY RUN (default)
- *   npx medusa exec ./src/scripts/sync-moloni.ts commit                # write to DB
+ *   npx medusa exec ./src/scripts/sync-moloni.ts commit                # write (incremental)
+ *   npx medusa exec ./src/scripts/sync-moloni.ts commit full           # ignore cursors, full sync
  *   npx medusa exec ./src/scripts/sync-moloni.ts commit limit=5
  *   npx medusa exec ./src/scripts/sync-moloni.ts commit entities=products,stock
  *   npx medusa exec ./src/scripts/sync-moloni.ts commit status=published
  *
+ * Runs are incremental by default (per-entity cursors); the first run, with no
+ * cursor yet, naturally fetches everything. Pass `full` to force a full sync.
  * Defaults to a DRY RUN so the first invocation never writes by accident — the
  * connected database is production. Pass `commit` to actually write.
  */
@@ -28,6 +31,7 @@ export default async function syncMoloni({ container, args }: ExecArgs) {
   }
 
   const dryRun = !has("commit")
+  const full = has("full")
   const limitRaw = valueOf("limit")
   const limit = limitRaw ? Number(limitRaw) : undefined
   const entitiesRaw = valueOf("entities")
@@ -43,6 +47,7 @@ export default async function syncMoloni({ container, args }: ExecArgs) {
 
   const report = await runMoloniSync(container, {
     dryRun,
+    full,
     limit,
     entities,
     productStatus: status,

@@ -19,6 +19,7 @@ export default async function moloniSyncJob(container: MedusaContainer) {
 
 export const config = {
   name: "moloni-sync",
-  // Daily at 03:00. Adjust as needed: https://crontab.guru/
-  schedule: "0 3 * * *",
+  // Every 5 minutes. Incremental by default (driven by per-entity cursors), so
+  // each tick only fetches what changed in Moloni. https://crontab.guru/
+  schedule: "*/5 * * * *",
 }
