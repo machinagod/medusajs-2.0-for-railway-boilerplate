@@ -23,7 +23,14 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
 # `pnpm build` = `medusa build` + postBuild.js. postBuild installs prod deps
 # inside .medusa/server (its own package.json), so that tree is self-contained.
 COPY . .
-RUN pnpm build
+# `medusa build` loads medusa-config.js → constants.ts, which assertValue()s
+# DATABASE_URL/JWT_SECRET/COOKIE_SECRET. The build only compiles (no DB
+# connection), so satisfy the asserts with throwaway values scoped to this RUN
+# (they never persist in the image). Real values come from Railway at runtime.
+RUN DATABASE_URL="postgres://build:build@localhost:5432/build" \
+    JWT_SECRET="build" \
+    COOKIE_SECRET="build" \
+    pnpm build
 
 # Root install still has devDependencies; runtime only needs init-backend's deps
 # (@medusajs/cli, medusajs-launch-utils — both runtime dependencies). Slim them.
