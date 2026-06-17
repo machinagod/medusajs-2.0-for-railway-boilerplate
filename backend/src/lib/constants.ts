@@ -1,6 +1,8 @@
 import { loadEnv } from '@medusajs/framework/utils'
 
-import { assertValue } from 'utils/assert-value'
+// Relative path (not the bare "utils/assert-value" alias) so this resolves
+// under `medusa db:migrate`'s plain dynamic import too — see medusa-config.js.
+import { assertValue } from '../utils/assert-value'
 
 loadEnv(process.env.NODE_ENV || 'development', process.cwd())
 
