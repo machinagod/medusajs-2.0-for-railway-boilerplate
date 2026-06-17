@@ -3,15 +3,18 @@ name: CI
 # Build + deploy pipeline for master:
 #
 #   push ──► e2e (full-stack Playwright gate, ephemeral CI Postgres)
-#             └─► backend-image  ┐  build Docker images, push to GHCR
-#             └─► storefront-image┘  (private packages, tags :latest + :sha-<commit>)
-#                   └─► deploy ──► railway redeploy (pulls the new images)
+#             └─► image-smoke (build the real Docker images + boot them)
+#                   └─► backend-image  ┐  push to GHCR
+#                   └─► storefront-image┘  (tags :latest + :sha-<commit>)
+#                         └─► deploy ──► railway redeploy (pulls the new images)
 #
 # Railway no longer builds from the repo — each service deploys the prebuilt
-# GHCR image, and the deploy job below triggers the redeploy. e2e still gates
-# everything: a red run blocks image build and deploy. The e2e stack is
-# self-contained (CI Postgres, no external services/secrets) and never touches
-# production. See .github/workflows/README.md.
+# GHCR image, and the deploy job below triggers the redeploy. e2e + image-smoke
+# both gate everything: a red run blocks image push and deploy. e2e exercises the
+# app from source (devDeps present); image-smoke boots the pruned production
+# images so runtime deps misfiled as devDependencies can't slip through. Both
+# stacks are self-contained (CI Postgres, no external services/secrets) and never
+# touch production. See .github/workflows/README.md.
 
 on:
   push:
@@ -172,10 +175,132 @@ jobs:
           echo "===== backend.log ====="; tail -n 200 /tmp/backend.log || true
           echo "===== storefront.log ====="; tail -n 200 /tmp/storefront.log || true
 
+  # ── Image boot smoke test ────────────────────────────────────────────────
+  # Builds the ACTUAL Docker images and boots them. The e2e job above installs
+  # with devDependencies present and runs `pnpm start`/`next start` directly, so
+  # it never exercises the image's `pnpm prune --prod` tree — runtime deps that
+  # are misfiled under devDependencies (e.g. react for the email templates,
+  # ansi-colors for next.config) pass e2e but crash the deployed image. This job
+  # closes that gap: it runs on PRs + master and gates the image push + deploy.
+  image-smoke:
+    name: Image boot smoke test
+    needs: e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Build the backend image locally (shares the gha cache scope with the
+      # backend-image push job, so that job rebuilds from cache, not from zero).
+      - name: Build backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          load: true
+          tags: backend:smoke
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+
+      - name: Create smoke database
+        run: |
+          export PGPASSWORD=postgres
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -c "CREATE DATABASE smoke_db;"
+
+      # Pre-migrate so init-backend's checkIfSeeded sees the schema and SKIPS
+      # seeding — mirroring production's already-seeded boot path (the path that
+      # runs `cd .medusa/server && medusa db:migrate && medusa start`). sslmode is
+      # disabled because the CI Postgres has no SSL (prod's does).
+      - name: Pre-migrate the smoke database
+        env:
+          SMOKE_DB_URL: postgres://postgres:postgres@localhost:5432/smoke_db?sslmode=disable
+        run: |
+          docker run --rm --network host \
+            -e DATABASE_URL="$SMOKE_DB_URL" \
+            -e JWT_SECRET=smoke -e COOKIE_SECRET=smoke \
+            -e MOLONI_CLIENT_ID=dummy -e MOLONI_CLIENT_SECRET=dummy \
+            -e MOLONI_USER=dummy -e MOLONI_PASSWORD=dummy -e MOLONI_COMPANY_ID=1 \
+            -w /app/.medusa/server --entrypoint sh backend:smoke \
+            -c "./node_modules/.bin/medusa db:migrate"
+
+      - name: Boot backend image and assert /health
+        env:
+          SMOKE_DB_URL: postgres://postgres:postgres@localhost:5432/smoke_db?sslmode=disable
+        run: |
+          docker run -d --name backend-smoke --network host \
+            -e DATABASE_URL="$SMOKE_DB_URL" \
+            -e JWT_SECRET=smoke -e COOKIE_SECRET=smoke \
+            -e MEDUSA_ADMIN_EMAIL=admin@smoke.test -e MEDUSA_ADMIN_PASSWORD=supersecret123 \
+            -e STORE_CORS=http://localhost:8000 \
+            -e ADMIN_CORS=http://localhost:9000 \
+            -e AUTH_CORS=http://localhost:9000 \
+            -e MOLONI_CLIENT_ID=dummy -e MOLONI_CLIENT_SECRET=dummy \
+            -e MOLONI_USER=dummy -e MOLONI_PASSWORD=dummy -e MOLONI_COMPANY_ID=1 \
+            backend:smoke
+          echo "Waiting for backend image health…"
+          npx --yes wait-on -t 180000 http://localhost:9000/health
+          echo "Backend image booted healthy."
+
+      - name: Backend image logs on failure
+        if: failure()
+        run: docker logs backend-smoke 2>&1 | tail -n 200 || true
+
+      # Storefront: build args are inlined by `next build`; values are dummy
+      # because we only assert the server boots (next.config -> check-env-variables
+      # must resolve its runtime deps in the pruned image). The backend booted
+      # above is reachable at localhost:9000 for any on-demand rendering.
+      - name: Build storefront image
+        uses: docker/build-push-action@v6
+        with:
+          context: storefront
+          load: true
+          tags: storefront:smoke
+          cache-from: type=gha,scope=storefront
+          cache-to: type=gha,mode=max,scope=storefront
+          build-args: |
+            NEXT_PUBLIC_MEDUSA_BACKEND_URL=http://localhost:9000
+            NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY=pk_smoke_dummy
+            NEXT_PUBLIC_BASE_URL=http://localhost:8000
+            NEXT_PUBLIC_DEFAULT_REGION=dk
+
+      - name: Boot storefront image and assert it serves
+        run: |
+          docker run -d --name storefront-smoke --network host \
+            -e PORT=8000 storefront:smoke
+          echo "Waiting for storefront to listen…"
+          npx --yes wait-on -t 120000 tcp:127.0.0.1:8000
+          # Any HTTP status (even an error page) proves `next start` booted;
+          # 000 means the process crashed (e.g. a pruned runtime dep).
+          code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000 || echo 000)
+          echo "storefront / -> HTTP $code"
+          test "$code" != "000"
+
+      - name: Storefront image logs on failure
+        if: failure()
+        run: docker logs storefront-smoke 2>&1 | tail -n 200 || true
+
   # ── Backend image ──────────────────────────────────────────────────────────
   backend-image:
     name: Build + push backend image
-    needs: e2e
+    needs: [e2e, image-smoke]
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -216,7 +341,7 @@ jobs:
   # ── Storefront image ─────────────────────────────────────────────────────
   storefront-image:
     name: Build + push storefront image
-    needs: e2e
+    needs: [e2e, image-smoke]
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     timeout-minutes: 30
