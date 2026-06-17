@@ -9,19 +9,29 @@ push to master ──► GitHub Actions "CI" (ci.yml)
     │                     (ephemeral CI Postgres — never production)
     │                          │ green
     │                          ▼
+    ├─ image-smoke        build + boot the REAL backend & storefront images,
+    │                     assert backend /health and storefront serves
+    │                          │ green
+    │                          ▼
     ├─ backend-image     build backend/Dockerfile  ─┐  push to GHCR (private)
     ├─ storefront-image  build storefront/Dockerfile ┘  tags :latest + :sha-<commit>
-    │                          │ both pushed
-    │                          ▼
-    └─ deploy            railway redeploy Backend + Storefront → pulls the new :latest
+    │
+    └─ (no deploy job) ── Railway watches GHCR and auto-redeploys on new :latest
 ```
 
-GitHub Actions **builds the images and triggers the deploy**. Railway no longer
-builds from the repo — each service deploys the prebuilt GHCR image. The `e2e`
-job still gates everything: a red run blocks the image builds and the deploy.
+GitHub Actions **builds, smoke-tests, and pushes the images** — that's it. CI
+does **not** trigger the deploy: each Railway service has **GHCR image
+auto-updates** enabled, so Railway polls the image tag and redeploys itself when
+a new `:latest` lands. Railway no longer builds from the repo.
 
-`backend-image`, `storefront-image`, and `deploy` only run on **push to
-master** (not on PRs). PRs still get the full `e2e` gate.
+`e2e` and `image-smoke` both gate the push: a red run blocks the image (and
+therefore the deploy). `e2e` runs the app from source with devDependencies
+present; `image-smoke` boots the **pruned** production images, so a runtime
+dependency misfiled as a devDependency (e.g. storefront `ansi-colors`, backend
+`react`) can't pass `e2e` yet crash the deployed image.
+
+`backend-image` and `storefront-image` only run on **push to master** (not on
+PRs). PRs get the full `e2e` + `image-smoke` gate.
 
 ## Images
 
@@ -47,17 +57,12 @@ time, they are still statically prerendered.
 
 ### 1. GitHub → Settings → Secrets and variables → Actions
 
-**Secrets:**
+**Secrets:** none required. `GITHUB_TOKEN` is provided automatically and has
+`packages: write` for pushing to GHCR. CI no longer deploys, so there is **no
+`RAILWAY_TOKEN`** — Railway redeploys itself via image auto-updates (see step 2).
 
-| Secret | Purpose |
-| --- | --- |
-| `RAILWAY_TOKEN` | Railway **project token** scoped to the `production` environment. Used by the `deploy` job to `railway redeploy`. Create it in Railway → Project → Settings → Tokens. |
-
-`GITHUB_TOKEN` is provided automatically and has `packages: write` for pushing
-to GHCR — no extra secret needed for the push.
-
-**Variables** (these are `NEXT_PUBLIC_*` — public values, not secrets — plus the
-Railway service names):
+**Variables** (these are `NEXT_PUBLIC_*` — public values, not secrets — inlined
+into the storefront image at build time):
 
 | Variable | Example |
 | --- | --- |
@@ -69,8 +74,6 @@ Railway service names):
 | `NEXT_PUBLIC_SEARCH_ENDPOINT` | MeiliSearch URL (optional) |
 | `NEXT_PUBLIC_SEARCH_API_KEY` | MeiliSearch search key (optional) |
 | `NEXT_PUBLIC_INDEX_NAME` | `products` (optional) |
-| `RAILWAY_BACKEND_SERVICE` | `Backend` |
-| `RAILWAY_STOREFRONT_SERVICE` | `Storefront` |
 
 ### 2. Railway → each service (Backend, Storefront), `production` environment
 
@@ -83,8 +86,10 @@ Railway service names):
    image runs `pnpm start` = migrate-on-boot + `medusa start`; the storefront
    image runs `next start`).
 4. Keep the existing **health check paths** (`/health`, `/api/healthcheck`).
-5. The old **"Wait for CI"** setting is now moot — image-source services don't
-   watch git; the `deploy` job is the only trigger. You can leave it off.
+5. **Enable image auto-updates** on the service so Railway polls the GHCR tag and
+   redeploys when CI publishes a new `:latest`. This is what deploys — CI has no
+   deploy job. (The old **"Wait for CI"** git setting is moot for image-source
+   services; leave it off.)
 
 > Because the images don't exist until the first `master` build runs, do the
 > Railway source switch **after** that first build has pushed both images
@@ -100,11 +105,14 @@ Postgres service.
 
 ## Iterating on CI
 
-- **Image build failures** surface in the `backend-image` / `storefront-image`
-  jobs. Docker isn't run in the `e2e` job, so the first real validation of the
-  Dockerfiles is this job — check its logs.
+- **Image build / boot failures** surface in the `image-smoke` job (and, on
+  master, the `backend-image` / `storefront-image` push jobs). `image-smoke`
+  builds the real Dockerfiles and boots them, so it catches both build breakage
+  and runtime crashes (e.g. a pruned runtime dep, or a `medusa db:migrate`
+  failure) — check its container-log step.
 - **e2e failures**: check the **playwright-report** artifact and the "Dump
   server logs" step. Likely tweaks: the seeded `NEXT_PUBLIC_DEFAULT_REGION`,
   seed data expectations, or specs that need a payment provider.
-- **Deploy failures**: usually a missing `RAILWAY_TOKEN`/service-name var, or
-  Railway lacking GHCR pull credentials.
+- **Deploy didn't happen**: CI only publishes the image; the redeploy is
+  Railway's image auto-update. Check that the service has auto-updates enabled
+  and valid GHCR pull credentials, and that the new `:latest` digest was pushed.

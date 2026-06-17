@@ -6,15 +6,15 @@ name: CI
 #             └─► image-smoke (build the real Docker images + boot them)
 #                   └─► backend-image  ┐  push to GHCR
 #                   └─► storefront-image┘  (tags :latest + :sha-<commit>)
-#                         └─► deploy ──► railway redeploy (pulls the new images)
 #
-# Railway no longer builds from the repo — each service deploys the prebuilt
-# GHCR image, and the deploy job below triggers the redeploy. e2e + image-smoke
-# both gate everything: a red run blocks image push and deploy. e2e exercises the
-# app from source (devDeps present); image-smoke boots the pruned production
-# images so runtime deps misfiled as devDependencies can't slip through. Both
-# stacks are self-contained (CI Postgres, no external services/secrets) and never
-# touch production. See .github/workflows/README.md.
+# Railway no longer builds from the repo, and CI no longer triggers the deploy:
+# each service has GHCR image auto-updates enabled, so Railway redeploys itself
+# when a new :latest is published. e2e + image-smoke both gate the push: a red run
+# blocks the image (and therefore the deploy). e2e exercises the app from source
+# (devDeps present); image-smoke boots the pruned production images so runtime
+# deps misfiled as devDependencies can't slip through. Both stacks are
+# self-contained (CI Postgres, no external services/secrets) and never touch
+# production. See .github/workflows/README.md.
 
 on:
   push:
@@ -392,23 +392,6 @@ jobs:
             NEXT_PUBLIC_SEARCH_API_KEY=${{ vars.NEXT_PUBLIC_SEARCH_API_KEY }}
             NEXT_PUBLIC_INDEX_NAME=${{ vars.NEXT_PUBLIC_INDEX_NAME }}
 
-  # ── Deploy ───────────────────────────────────────────────────────────────
-  deploy:
-    name: Deploy to Railway
-    needs: [backend-image, storefront-image]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - name: Redeploy Railway services
-        env:
-          # Railway *project* token scoped to the production environment.
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-          BACKEND_SERVICE: ${{ vars.RAILWAY_BACKEND_SERVICE }}
-          STOREFRONT_SERVICE: ${{ vars.RAILWAY_STOREFRONT_SERVICE }}
-        run: |
-          npm install -g @railway/cli@latest
-          # Each service is configured (in the Railway dashboard) to deploy the
-          # GHCR :latest image; redeploy re-pulls the freshly pushed tag.
-          railway redeploy --service "$BACKEND_SERVICE" --yes
-          railway redeploy --service "$STOREFRONT_SERVICE" --yes
+  # No deploy job: each Railway service has GHCR image auto-updates enabled, so
+  # Railway polls the image tag and redeploys automatically when CI publishes a
+  # new :latest. CI's responsibility ends at pushing the verified image.

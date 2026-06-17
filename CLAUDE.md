@@ -87,22 +87,28 @@ Fix failures before committing — including pre-existing ones in files you touc
 
 ## Deploy & CI
 - **Build & deploy**: GitHub Actions (`.github/workflows/ci.yml`) builds Docker
-  images from `backend/Dockerfile` and `storefront/Dockerfile`, pushes them to
+  images from `backend/Dockerfile` and `storefront/Dockerfile` and pushes them to
   **GHCR** (private: `ghcr.io/machinagod/medusajs-2.0-for-railway-boilerplate/{backend,storefront}`,
-  tags `:latest` + `:sha-<commit>`), then triggers `railway redeploy` on both
-  services. Railway deploys the **prebuilt image** — it no longer builds from the
-  repo. `init-backend` still runs DB migrations on boot (backend image `CMD`).
-- **Pipeline order**: `e2e` → `backend-image` + `storefront-image` → `deploy`.
-  The full-stack Playwright `e2e` job runs on an ephemeral CI Postgres (never
-  prod; no secrets) and gates the image builds and deploy. Image jobs + deploy
-  run only on push to `master`.
+  tags `:latest` + `:sha-<commit>`). CI does **not** trigger the deploy — each
+  Railway service has **GHCR image auto-updates** enabled, so Railway polls the
+  image tag and redeploys itself when a new `:latest` is published. Railway no
+  longer builds from the repo. `init-backend` + the start command run DB
+  migrations on boot (backend image `CMD`).
+- **Pipeline order**: `e2e` → `image-smoke` → `backend-image` + `storefront-image`.
+  `e2e` (full-stack Playwright) and `image-smoke` (builds + boots the real Docker
+  images) both run on an ephemeral CI Postgres (never prod; no secrets) and gate
+  the image push. `e2e` runs the app from source (devDeps present); `image-smoke`
+  boots the **pruned** production images, so a runtime dep misfiled as a
+  devDependency (it has bitten us: storefront `ansi-colors`, backend `react`) is
+  caught before publish. The image-push jobs run only on push to `master`.
 - **Storefront images are env-specific**: `NEXT_PUBLIC_*` (incl. the publishable
   key) are inlined at build time from GitHub Actions **Variables**. The backend
   image needs no build secrets.
-- **Required config** (one-time): GitHub secret `RAILWAY_TOKEN` (project token),
-  the `NEXT_PUBLIC_*` + `RAILWAY_*_SERVICE` Actions Variables, and a GHCR pull
-  credential on each Railway service (dashboard — not settable via API). Full
-  list in `.github/workflows/README.md`.
+- **Required config** (one-time): the `NEXT_PUBLIC_*` Actions Variables, a GHCR
+  pull credential on each Railway service, and **image auto-updates** enabled on
+  each service (all in the Railway dashboard — not settable via API). No
+  `RAILWAY_TOKEN` is needed (CI doesn't deploy). Full list in
+  `.github/workflows/README.md`.
 - The `storefront/e2e` suite **drops/recreates its DB** — only ever point it at a
   `test_`-prefixed DB, never the production `DATABASE_URL`.
 
