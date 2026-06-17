@@ -29,7 +29,14 @@ import {
   MOLONI_PASSWORD,
   MOLONI_COMPANY_ID,
   MOLONI_SANDBOX
-} from 'lib/constants';
+  // Relative path (not the bare "lib/constants" alias): the alias only resolves
+  // under `medusa start`/`develop`, which register tsconfig path-aliases. The
+  // `medusa db:migrate` step (run on every deploy) loads this config via a plain
+  // dynamic import with NO alias registration, so a bare specifier throws
+  // "Cannot find module 'lib/constants'" and crashes boot. The `src/` subtree is
+  // preserved under `.medusa/server/src/`, so this relative path resolves
+  // identically in source (dev) and in the built server (db:migrate + start).
+} from './src/lib/constants';
 
 loadEnv(process.env.NODE_ENV, process.cwd());
 
