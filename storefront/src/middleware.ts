@@ -85,9 +85,43 @@ async function getCountryCode(
 }
 
 /**
+ * Optional site-wide HTTP Basic Auth gate (pre-launch protection).
+ *
+ * Active ONLY when STOREFRONT_BASIC_AUTH_PASSWORD is set — otherwise this is a
+ * no-op and the site is public, so deploying the code never locks anyone out
+ * until the password is configured. Username defaults to "higitotal" and can be
+ * overridden with STOREFRONT_BASIC_AUTH_USER. Read at runtime (not a build-time
+ * NEXT_PUBLIC_* var), so the password can be set/rotated on Railway without a
+ * rebuild. The healthcheck (/api/healthcheck) is unaffected — /api is excluded
+ * by the matcher below, so this never runs on it.
+ */
+function basicAuthGate(request: NextRequest): NextResponse | null {
+  const password = process.env.STOREFRONT_BASIC_AUTH_PASSWORD
+  if (!password) {
+    return null
+  }
+  const user = process.env.STOREFRONT_BASIC_AUTH_USER || "higitotal"
+  const expected = `Basic ${btoa(`${user}:${password}`)}`
+  if (request.headers.get("authorization") === expected) {
+    return null
+  }
+  return new NextResponse("Authentication required.", {
+    status: 401,
+    headers: {
+      "WWW-Authenticate": 'Basic realm="Higitotal — pre-launch", charset="UTF-8"',
+    },
+  })
+}
+
+/**
  * Middleware to handle region selection and onboarding status.
  */
 export async function middleware(request: NextRequest) {
+  const authChallenge = basicAuthGate(request)
+  if (authChallenge) {
+    return authChallenge
+  }
+
   const searchParams = request.nextUrl.searchParams
   const isOnboarding = searchParams.get("onboarding") === "true"
   const cartId = searchParams.get("cart_id")
