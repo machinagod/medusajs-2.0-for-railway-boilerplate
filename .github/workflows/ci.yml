@@ -402,6 +402,32 @@ jobs:
             NEXT_PUBLIC_SEARCH_API_KEY=${{ vars.NEXT_PUBLIC_SEARCH_API_KEY }}
             NEXT_PUBLIC_INDEX_NAME=${{ vars.NEXT_PUBLIC_INDEX_NAME }}
 
-  # No deploy job: each Railway service has GHCR image auto-updates enabled, so
-  # Railway polls the image tag and redeploys automatically when CI publishes a
-  # new :latest. CI's responsibility ends at pushing the verified image.
+  # ── Deploy ───────────────────────────────────────────────────────────────
+  # Railway services have GHCR image auto-updates enabled, but the poll can lag
+  # 10+ min after a push. This job nudges Railway to pull the freshly-published
+  # :latest immediately via `railway redeploy --from-source` (the flag that
+  # re-pulls the configured image instead of restarting the old digest). Auto-
+  # update stays on as the fallback. Requires a RAILWAY_TOKEN repo secret (a
+  # Railway *project* token scoped to the production environment — Project →
+  # Settings → Tokens). If the secret is absent, the job no-ops with a warning
+  # and the auto-update poll still deploys (just slower).
+  deploy:
+    name: Force Railway redeploy
+    needs: [backend-image, storefront-image]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+    steps:
+      - name: Redeploy services (pull freshly-pushed :latest)
+        run: |
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "::warning::RAILWAY_TOKEN not set — skipping force-deploy. Railway image auto-update will pull the new :latest on its next poll (slower)."
+            exit 0
+          fi
+          npm install -g @railway/cli
+          for svc in "${{ vars.RAILWAY_BACKEND_SERVICE }}" "${{ vars.RAILWAY_STOREFRONT_SERVICE }}"; do
+            echo "Redeploying $svc from configured image source…"
+            railway redeploy --service "$svc" --from-source -y
+          done

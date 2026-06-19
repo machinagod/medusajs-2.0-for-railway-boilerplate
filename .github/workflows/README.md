@@ -15,14 +15,16 @@ push to master ──► GitHub Actions "CI" (ci.yml)
     │                          ▼
     ├─ backend-image     build backend/Dockerfile  ─┐  push to GHCR (private)
     ├─ storefront-image  build storefront/Dockerfile ┘  tags :latest + :sha-<commit>
-    │
-    └─ (no deploy job) ── Railway watches GHCR and auto-redeploys on new :latest
+    │                                                 │
+    └─ deploy ── railway redeploy --from-source ──────┘  (nudge Railway to pull now)
 ```
 
-GitHub Actions **builds, smoke-tests, and pushes the images** — that's it. CI
-does **not** trigger the deploy: each Railway service has **GHCR image
-auto-updates** enabled, so Railway polls the image tag and redeploys itself when
-a new `:latest` lands. Railway no longer builds from the repo.
+GitHub Actions **builds, smoke-tests, and pushes the images**, then **nudges
+Railway to pull the new `:latest` immediately** (`deploy` job, `railway redeploy
+--from-source`). Railway services also have **GHCR image auto-updates** enabled
+as a fallback — if the nudge is skipped (no `RAILWAY_TOKEN`) or fails, Railway
+still picks up the new image on its next poll (just slower, 10+ min). Railway no
+longer builds from the repo.
 
 `e2e` and `image-smoke` both gate the push: a red run blocks the image (and
 therefore the deploy). `e2e` runs the app from source with devDependencies
@@ -57,9 +59,14 @@ time, they are still statically prerendered.
 
 ### 1. GitHub → Settings → Secrets and variables → Actions
 
-**Secrets:** none required. `GITHUB_TOKEN` is provided automatically and has
-`packages: write` for pushing to GHCR. CI no longer deploys, so there is **no
-`RAILWAY_TOKEN`** — Railway redeploys itself via image auto-updates (see step 2).
+**Secrets:**
+- `GITHUB_TOKEN` — provided automatically; has `packages: write` for pushing to GHCR.
+- `RAILWAY_TOKEN` — **optional but recommended.** A Railway *project* token scoped
+  to the **production** environment (Railway → project → Settings → Tokens). The
+  `deploy` job uses it to force an immediate `railway redeploy --from-source` of
+  both services so they pull the new `:latest` without waiting on Railway's
+  auto-update poll (which can lag 10+ min). If unset, the `deploy` job no-ops with
+  a warning and image auto-updates (step 2) remain the fallback.
 
 **Variables** (these are `NEXT_PUBLIC_*` — public values, not secrets — inlined
 into the storefront image at build time):
