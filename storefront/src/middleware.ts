@@ -108,7 +108,9 @@ function basicAuthGate(request: NextRequest): NextResponse | null {
   return new NextResponse("Authentication required.", {
     status: 401,
     headers: {
-      "WWW-Authenticate": 'Basic realm="Higitotal — pre-launch", charset="UTF-8"',
+      // ASCII only — non-ASCII (e.g. an em dash) in a header value throws in
+      // the Edge runtime and turns the 401 into a 500.
+      "WWW-Authenticate": 'Basic realm="Higitotal", charset="UTF-8"',
     },
   })
 }
