@@ -25,6 +25,7 @@ import {
   transform,
   WorkflowResponse,
 } from "@medusajs/framework/workflows-sdk";
+import { PRODUCT_ATTRIBUTES_MODULE } from "../modules/product-attributes";
 
 const updateStoreCurrencies = createWorkflow(
   "update-store-currencies",
@@ -904,4 +905,26 @@ export default async function seedDemoData({ container }: ExecArgs) {
   });
 
   logger.info("Finished seeding inventory levels data.");
+
+  // Seed "About this item" highlights for the t-shirt, so the storefront's
+  // product-highlights feature (product_attributes module) has deterministic
+  // data for the read-only e2e smoke test.
+  const productModuleService = container.resolve(Modules.PRODUCT);
+  const [tshirt] = await productModuleService.listProducts({ handle: "t-shirt" });
+  if (tshirt) {
+    const attrService: any = container.resolve(PRODUCT_ATTRIBUTES_MODULE);
+    const existing = await attrService.listProductAttributes({
+      product_id: tshirt.id,
+    });
+    if (!existing.length) {
+      await attrService.createProductAttributes([
+        { product_id: tshirt.id, kind: "highlight", value: "100% organic cotton", rank: 0 },
+        { product_id: tshirt.id, kind: "highlight", value: "Breathable and soft for everyday wear", rank: 1 },
+        { product_id: tshirt.id, kind: "highlight", value: "Pre-shrunk classic fit", rank: 2 },
+        { product_id: tshirt.id, kind: "spec", label: "Material", value: "Cotton", unit: null, rank: 0 },
+        { product_id: tshirt.id, kind: "spec", label: "Weight", value: "400", unit: "g", rank: 1 },
+      ]);
+      logger.info("Finished seeding product highlights/specs.");
+    }
+  }
 }
