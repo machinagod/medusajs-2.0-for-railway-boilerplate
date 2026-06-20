@@ -34,6 +34,26 @@ module.exports = {
           80: "#1F2937",
           90: "#111827",
         },
+        // Higitotal design system
+        brand: {
+          cyan: "#00adef",
+          "cyan-ink": "#0094cc",
+          ink: "#231f20",
+          "ink-soft": "#1a1a1a",
+          navy: "#0a4d7a",
+        },
+        // Assistência Técnica (dark "pro" register)
+        svc: {
+          ground: "#16181d",
+          "ground-2": "#1f242b",
+          line: "#2c333c",
+          fg: "#e7ecf1",
+          "fg-muted": "#8b95a1",
+          signal: "#ff7a1a",
+          "signal-ink": "#e0660a",
+          ok: "#3ecf8e",
+        },
+        hairline: "#e2e6ea",
       },
       borderRadius: {
         none: "0px",
@@ -42,6 +62,11 @@ module.exports = {
         rounded: "8px",
         large: "16px",
         circle: "9999px",
+        // Higitotal bold-redesign radii
+        btn: "14px",
+        card: "24px",
+        hero: "32px",
+        pill: "999px",
       },
       maxWidth: {
         "8xl": "100rem",
@@ -60,6 +85,7 @@ module.exports = {
       },
       fontFamily: {
         sans: [
+          "Montserrat",
           "Inter",
           "-apple-system",
           "BlinkMacSystemFont",

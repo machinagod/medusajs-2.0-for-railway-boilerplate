@@ -1,6 +1,52 @@
+/* Higitotal design system — Montserrat (matches the live brand) */
+@import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap");
 @import "tailwindcss/base";
 @import "tailwindcss/components";
 @import "tailwindcss/utilities";
+
+/* Higitotal token layer — brand colours, motif. Components use these via the
+   tailwind brand-* / svc-* colours and CSS vars for inline styles. */
+:root {
+  --brand-cyan: #00adef;
+  --brand-cyan-ink: #0094cc;
+  --brand-ink: #231f20;
+  --hairline: #e2e6ea;
+  --svc-ground: #16181d;
+  --svc-signal: #ff7a1a;
+}
+
+body {
+  font-family: "Montserrat", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, "Helvetica Neue", sans-serif;
+}
+
+/* Signature cyan dot before eyebrow labels (.ind / .ind.amber). */
+.ind {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  background: var(--brand-cyan);
+  vertical-align: middle;
+}
+.ind.amber {
+  background: var(--svc-signal);
+}
+
+/* Brand form field (contact modal etc.) */
+.ht-field {
+  width: 100%;
+  border: 1.5px solid var(--hairline);
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-size: 14px;
+  color: #231f20;
+  background: #fff;
+  outline: 0;
+}
+.ht-field:focus {
+  border-color: var(--brand-cyan);
+}
 
 @layer utilities {
   /* Chrome, Safari and Opera */

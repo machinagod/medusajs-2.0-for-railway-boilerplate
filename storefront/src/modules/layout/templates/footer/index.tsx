@@ -1,102 +1,97 @@
 import { getCategoriesList } from "@lib/data/categories"
 import { getCollectionsList } from "@lib/data/collections"
-import { Text, clx } from "@medusajs/ui"
 
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
-import MedusaCTA from "@modules/layout/components/medusa-cta"
 
 export default async function Footer() {
   const { collections } = await getCollectionsList(0, 6)
   const { product_categories } = await getCategoriesList(0, 6)
 
   return (
-    <footer className="border-t border-ui-border-base w-full">
-      <div className="content-container flex flex-col w-full">
-        <div className="flex flex-col gap-y-6 xsmall:flex-row items-start justify-between py-40">
+    <footer className="w-full bg-svc-ground text-svc-fg-muted font-sans">
+      <div className="content-container">
+        <div className="grid grid-cols-1 gap-10 py-14 md:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_1.2fr] lg:gap-10">
+          {/* Brand + blurb */}
           <div>
-            <LocalizedClientLink
-              href="/"
-              className="txt-compact-xlarge-plus text-ui-fg-subtle hover:text-ui-fg-base uppercase"
-            >
-              Medusa Store
+            <LocalizedClientLink href="/" className="inline-block">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/higitotal/logo-white-on-black.png"
+                alt="Higitotal"
+                className="mb-5 h-[42px] w-auto"
+              />
             </LocalizedClientLink>
+            <p className="max-w-[34ch] text-[13px] leading-[1.65] text-svc-fg-muted">
+              Higitotal — Sistemas e Produtos de Higiene, Lda. Distribuição e
+              assistência técnica de equipamento profissional de higiene e
+              cozinha, desde 1999.
+            </p>
           </div>
-          <div className="text-small-regular gap-10 md:gap-x-16 grid grid-cols-2 sm:grid-cols-3">
-            {product_categories && product_categories?.length > 0 && (
-              <div className="flex flex-col gap-y-2">
-                <span className="txt-small-plus txt-ui-fg-base">
-                  Categories
-                </span>
-                <ul
-                  className="grid grid-cols-1 gap-2"
-                  data-testid="footer-categories"
-                >
-                  {product_categories?.slice(0, 6).map((c) => {
-                    if (c.parent_category) {
-                      return
-                    }
 
-                    const children =
-                      c.category_children?.map((child) => ({
-                        name: child.name,
-                        handle: child.handle,
-                        id: child.id,
-                      })) || null
+          {/* Categorias (dynamic) */}
+          {product_categories && product_categories.length > 0 && (
+            <div>
+              <h4 className="mb-4 text-[11px] font-bold uppercase leading-none tracking-[0.12em] text-white">
+                Categorias
+              </h4>
+              <ul
+                className="m-0 list-none p-0"
+                data-testid="footer-categories"
+              >
+                {product_categories.slice(0, 6).map((c) => {
+                  if (c.parent_category) {
+                    return null
+                  }
 
-                    return (
-                      <li
-                        className="flex flex-col gap-2 text-ui-fg-subtle txt-small"
-                        key={c.id}
-                      >
-                        <LocalizedClientLink
-                          className={clx(
-                            "hover:text-ui-fg-base",
-                            children && "txt-small-plus"
-                          )}
-                          href={`/categories/${c.handle}`}
-                          data-testid="category-link"
-                        >
-                          {c.name}
-                        </LocalizedClientLink>
-                        {children && (
-                          <ul className="grid grid-cols-1 ml-3 gap-2">
-                            {children &&
-                              children.map((child) => (
-                                <li key={child.id}>
-                                  <LocalizedClientLink
-                                    className="hover:text-ui-fg-base"
-                                    href={`/categories/${child.handle}`}
-                                    data-testid="category-link"
-                                  >
-                                    {child.name}
-                                  </LocalizedClientLink>
-                                </li>
-                              ))}
-                          </ul>
-                        )}
-                      </li>
-                    )
-                  })}
-                </ul>
-              </div>
-            )}
-            {collections && collections.length > 0 && (
-              <div className="flex flex-col gap-y-2">
-                <span className="txt-small-plus txt-ui-fg-base">
-                  Collections
-                </span>
-                <ul
-                  className={clx(
-                    "grid grid-cols-1 gap-2 text-ui-fg-subtle txt-small",
-                    {
-                      "grid-cols-2": (collections?.length || 0) > 3,
-                    }
-                  )}
-                >
-                  {collections?.slice(0, 6).map((c) => (
-                    <li key={c.id}>
+                  return (
+                    <li key={c.id} className="mb-[11px]">
                       <LocalizedClientLink
-                        className="hover:text-ui-fg-base"
+                        className="text-[13px] font-medium leading-none text-svc-fg-muted transition-colors hover:text-white"
+                        href={`/categories/${c.handle}`}
+                        data-testid="category-link"
+                      >
+                        {c.name}
+                      </LocalizedClientLink>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          )}
+
+          {/* Assistência Técnica */}
+          <div>
+            <h4 className="mb-4 text-[11px] font-bold uppercase leading-none tracking-[0.12em] text-white">
+              Assistência Técnica
+            </h4>
+            <ul className="m-0 list-none p-0">
+              {["Instalação", "Reparação", "Contratos de manutenção"].map(
+                (item) => (
+                  <li key={item} className="mb-[11px]">
+                    <LocalizedClientLink
+                      className="text-[13px] font-medium leading-none text-svc-fg-muted transition-colors hover:text-white"
+                      href="/assistencia-tecnica"
+                    >
+                      {item}
+                    </LocalizedClientLink>
+                  </li>
+                )
+              )}
+            </ul>
+          </div>
+
+          {/* Collections (dynamic) + Contactos */}
+          <div className="flex flex-col gap-8">
+            {collections && collections.length > 0 && (
+              <div>
+                <h4 className="mb-4 text-[11px] font-bold uppercase leading-none tracking-[0.12em] text-white">
+                  Coleções
+                </h4>
+                <ul className="m-0 list-none p-0">
+                  {collections.slice(0, 6).map((c) => (
+                    <li key={c.id} className="mb-[11px]">
+                      <LocalizedClientLink
+                        className="text-[13px] font-medium leading-none text-svc-fg-muted transition-colors hover:text-white"
                         href={`/collections/${c.handle}`}
                       >
                         {c.title}
@@ -106,48 +101,62 @@ export default async function Footer() {
                 </ul>
               </div>
             )}
-            <div className="flex flex-col gap-y-2">
-              <span className="txt-small-plus txt-ui-fg-base">Medusa</span>
-              <ul className="grid grid-cols-1 gap-y-2 text-ui-fg-subtle txt-small">
-                <li>
+
+            <div>
+              <h4 className="mb-4 text-[11px] font-bold uppercase leading-none tracking-[0.12em] text-white">
+                Contactos
+              </h4>
+              <div className="flex flex-col gap-[14px] text-[13px] font-medium leading-[1.5] text-svc-fg">
+                <div className="flex items-start gap-3">
+                  <span className="mt-px shrink-0 text-brand-cyan">
+                    <span className="ind" />
+                  </span>
+                  <span>
+                    Zona Industrial, Rua J nº 137
+                    <br />
+                    5370-565 Mirandela, Portugal
+                  </span>
+                </div>
+                <div className="flex items-start gap-3">
+                  <span className="mt-px shrink-0 text-brand-cyan">
+                    <span className="ind" />
+                  </span>
                   <a
-                    href="https://github.com/medusajs"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="hover:text-ui-fg-base"
+                    href="tel:+351278262913"
+                    className="transition-colors hover:text-white"
                   >
-                    GitHub
+                    +351 278 262 913
                   </a>
-                </li>
-                <li>
+                </div>
+                <div className="flex items-start gap-3">
+                  <span className="mt-px shrink-0 text-brand-cyan">
+                    <span className="ind" />
+                  </span>
                   <a
-                    href="https://docs.medusajs.com"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="hover:text-ui-fg-base"
+                    href="mailto:higitotal@higitotal.pt"
+                    className="transition-colors hover:text-white"
                   >
-                    Documentation
+                    higitotal@higitotal.pt
                   </a>
-                </li>
-                <li>
-                  <a
-                    href="https://github.com/medusajs/nextjs-starter-medusa"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="hover:text-ui-fg-base"
-                  >
-                    Source code
-                  </a>
-                </li>
-              </ul>
+                </div>
+                <LocalizedClientLink
+                  href="/assistencia-tecnica"
+                  className="mt-1 inline-flex items-center gap-2 self-start rounded-btn bg-svc-signal px-[18px] py-[11px] text-[12px] font-bold uppercase leading-none tracking-[0.04em] text-white transition-colors hover:bg-svc-signal-ink"
+                >
+                  <span className="ind amber" /> Pedir assistência
+                </LocalizedClientLink>
+              </div>
             </div>
           </div>
         </div>
-        <div className="flex w-full mb-16 justify-between text-ui-fg-muted">
-          <Text className="txt-compact-small">
-            © {new Date().getFullYear()} Medusa Store. All rights reserved.
-          </Text>
-          <MedusaCTA />
+
+        {/* Bottom bar */}
+        <div className="flex flex-col gap-2 border-t border-svc-line py-7 text-[12px] text-svc-fg-muted sm:flex-row sm:items-center sm:justify-between">
+          <span>
+            © {new Date().getFullYear()} Higitotal — Sistemas e Produtos de
+            Higiene, Lda.
+          </span>
+          <span>Mirandela · Portugal</span>
         </div>
       </div>
     </footer>

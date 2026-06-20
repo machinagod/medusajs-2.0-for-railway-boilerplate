@@ -9,16 +9,27 @@ import LocalizedClientLink from "@modules/common/components/localized-client-lin
 import CountrySelect from "../country-select"
 import { HttpTypes } from "@medusajs/types"
 
-const SideMenuItems = {
-  Home: "/",
-  Store: "/store",
-  Search: "/search",
-  Account: "/account",
-  Cart: "/cart",
-}
+type Category = { label: string; href: string }
 
-const SideMenu = ({ regions }: { regions: HttpTypes.StoreRegion[] | null }) => {
+const defaultCategories: Category[] = [
+  { label: "Início", href: "/" },
+  { label: "Loja", href: "/store" },
+  { label: "Conta", href: "/account" },
+  { label: "Carrinho", href: "/cart" },
+]
+
+const SideMenu = ({
+  regions,
+  categories,
+}: {
+  regions: HttpTypes.StoreRegion[] | null
+  categories?: Category[]
+}) => {
   const toggleState = useToggleState()
+
+  const storeLinks: Category[] = categories?.length
+    ? categories
+    : defaultCategories
 
   return (
     <div className="h-full">
@@ -29,9 +40,24 @@ const SideMenu = ({ regions }: { regions: HttpTypes.StoreRegion[] | null }) => {
               <div className="relative flex h-full">
                 <Popover.Button
                   data-testid="nav-menu-button"
-                  className="relative h-full flex items-center transition-all ease-out duration-200 focus:outline-none hover:text-ui-fg-base"
+                  aria-label="Abrir menu"
+                  className="relative flex items-center justify-center w-11 h-11 rounded-pill text-brand-ink hover:bg-[#f1f4f7] transition-colors focus:outline-none"
                 >
-                  Menu
+                  <svg
+                    width="22"
+                    height="22"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <line x1="3" y1="6" x2="21" y2="6" />
+                    <line x1="3" y1="12" x2="21" y2="12" />
+                    <line x1="3" y1="18" x2="21" y2="18" />
+                  </svg>
                 </Popover.Button>
               </div>
 
@@ -45,32 +71,56 @@ const SideMenu = ({ regions }: { regions: HttpTypes.StoreRegion[] | null }) => {
                 leaveFrom="opacity-100 backdrop-blur-2xl"
                 leaveTo="opacity-0"
               >
-                <Popover.Panel className="flex flex-col absolute w-full pr-4 sm:pr-0 sm:w-1/3 2xl:w-1/4 sm:min-w-min h-[calc(100vh-1rem)] z-30 inset-x-0 text-sm text-ui-fg-on-color m-2 backdrop-blur-2xl">
+                <Popover.Panel className="flex flex-col absolute w-full pr-4 sm:pr-0 sm:w-1/3 2xl:w-1/4 sm:min-w-min h-[calc(100vh-1rem)] z-30 inset-x-0 text-sm m-2">
                   <div
                     data-testid="nav-menu-popup"
-                    className="flex flex-col h-full bg-[rgba(3,7,18,0.5)] rounded-rounded justify-between p-6"
+                    className="flex flex-col h-full bg-svc-ground text-svc-fg rounded-card border border-svc-line justify-between p-6"
                   >
-                    <div className="flex justify-end" id="xmark">
-                      <button data-testid="close-menu-button" onClick={close}>
+                    <div className="flex items-center justify-between" id="xmark">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src="/higitotal/logo-white-on-black.png"
+                        alt="Higitotal"
+                        className="h-8 w-auto"
+                      />
+                      <button
+                        data-testid="close-menu-button"
+                        aria-label="Fechar menu"
+                        className="text-svc-fg-muted hover:text-white transition-colors"
+                        onClick={close}
+                      >
                         <XMark />
                       </button>
                     </div>
-                    <ul className="flex flex-col gap-6 items-start justify-start">
-                      {Object.entries(SideMenuItems).map(([name, href]) => {
-                        return (
-                          <li key={name}>
-                            <LocalizedClientLink
-                              href={href}
-                              className="text-3xl leading-10 hover:text-ui-fg-disabled"
-                              onClick={close}
-                              data-testid={`${name.toLowerCase()}-link`}
-                            >
-                              {name}
-                            </LocalizedClientLink>
-                          </li>
-                        )
-                      })}
+
+                    <ul className="flex flex-col gap-5 items-start justify-start mt-8">
+                      {storeLinks.map((item) => (
+                        <li key={item.label}>
+                          <LocalizedClientLink
+                            href={item.href}
+                            className="text-2xl font-semibold leading-tight text-white hover:text-brand-cyan transition-colors"
+                            onClick={close}
+                            data-testid={`${item.label
+                              .toLowerCase()
+                              .replace(/\s+/g, "-")}-link`}
+                          >
+                            {item.label}
+                          </LocalizedClientLink>
+                        </li>
+                      ))}
+                      <li className="mt-2">
+                        <LocalizedClientLink
+                          href="/assistencia-tecnica"
+                          className="inline-flex items-center gap-x-2.5 bg-svc-signal text-white px-4 py-2.5 rounded-pill text-xs font-bold uppercase tracking-wide hover:bg-svc-signal-ink transition-colors"
+                          onClick={close}
+                          data-testid="assistencia-tecnica-link"
+                        >
+                          <span className="ind amber" />
+                          Assistência Técnica
+                        </LocalizedClientLink>
+                      </li>
                     </ul>
+
                     <div className="flex flex-col gap-y-6">
                       <div
                         className="flex justify-between"
@@ -90,9 +140,9 @@ const SideMenu = ({ regions }: { regions: HttpTypes.StoreRegion[] | null }) => {
                           )}
                         />
                       </div>
-                      <Text className="flex justify-between txt-compact-small">
-                        © {new Date().getFullYear()} Medusa Store. All rights
-                        reserved.
+                      <Text className="flex justify-between txt-compact-small text-svc-fg-muted">
+                        © {new Date().getFullYear()} Higitotal — Sistemas e
+                        Produtos de Higiene, Lda.
                       </Text>
                     </div>
                   </div>
