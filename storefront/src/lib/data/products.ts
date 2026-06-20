@@ -40,6 +40,29 @@ export const getProductByHandle = cache(async function (
     .then(({ products }) => products[0])
 })
 
+export type ProductHighlight = { id: string; value: string; rank: number }
+export type ProductSpec = {
+  id: string
+  label: string | null
+  value: string
+  unit: string | null
+  rank: number
+}
+
+/**
+ * Amazon-style product characteristics from the custom `product_attributes`
+ * module (store route GET /store/products/:id/attributes). `sdk.client.fetch`
+ * adds the publishable key + backend URL automatically. Fails soft to empty.
+ */
+export const getProductAttributes = cache(async function (productId: string) {
+  return sdk.client
+    .fetch<{ highlights: ProductHighlight[]; specs: ProductSpec[] }>(
+      `/store/products/${productId}/attributes`,
+      { next: { tags: ["products"] } }
+    )
+    .catch(() => ({ highlights: [], specs: [] }))
+})
+
 export const getProductsList = cache(async function ({
   pageParam = 1,
   queryParams,
