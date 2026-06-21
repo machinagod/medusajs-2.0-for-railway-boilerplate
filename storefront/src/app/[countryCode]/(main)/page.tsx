@@ -1,4 +1,5 @@
 import { Metadata } from "next"
+import { HttpTypes } from "@medusajs/types"
 
 import FeaturedProducts from "@modules/home/components/featured-products"
 import Hero from "@modules/home/components/hero"
@@ -8,7 +9,10 @@ import AtFeature from "@modules/home/components/at-feature"
 import Suppliers from "@modules/home/components/suppliers"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { getProductsList } from "@lib/data/products"
+import { getCollectionByHandle } from "@lib/data/collections"
 import { getRegion } from "@lib/data/regions"
+
+const FEATURED_COLLECTION = "fornos-profissionais"
 
 export const metadata: Metadata = {
   title: "Higitotal · Higiene profissional & assistência técnica",
@@ -28,16 +32,29 @@ export default async function Home({
     return null
   }
 
-  // Populate the "Em destaque" rail directly from the catalog (the store has no
-  // collections), so the section is never empty. Prefer products that actually
-  // have an image — the first products in default order have no thumbnail, which
-  // left the rail (and the hero media) showing blank placeholders. Fall back to
-  // the raw pool if too few have images.
-  const {
-    response: { products: pool },
-  } = await getProductsList({ queryParams: { limit: 100 }, countryCode })
-  const withImage = pool.filter((p) => p.thumbnail)
-  const featured = (withImage.length >= 8 ? withImage : pool).slice(0, 8)
+  // Drive the "Em destaque" rail from the Fornos Profissionais collection.
+  // Falls back to image-bearing catalog products if the collection is missing or
+  // empty, so the section is never blank.
+  const collection = await getCollectionByHandle(FEATURED_COLLECTION).catch(
+    () => null
+  )
+  let featured: HttpTypes.StoreProduct[] = []
+  if (collection?.id) {
+    const {
+      response: { products },
+    } = await getProductsList({
+      queryParams: { collection_id: [collection.id], limit: 8 } as any,
+      countryCode,
+    })
+    featured = products
+  }
+  if (!featured.length) {
+    const {
+      response: { products: pool },
+    } = await getProductsList({ queryParams: { limit: 100 }, countryCode })
+    const withImage = pool.filter((p) => p.thumbnail)
+    featured = (withImage.length >= 8 ? withImage : pool).slice(0, 8)
+  }
 
   return (
     <div className="content-container flex flex-col gap-9 py-4 small:gap-16 small:py-10">
@@ -53,14 +70,14 @@ export default async function Home({
           <div className="flex flex-col gap-1">
             <span className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-brand-cyan">
               <span className="ind" />
-              Mais vendidos
+              Em destaque
             </span>
             <h2 className="text-2xl font-extrabold tracking-tight text-brand-ink small:text-[34px]">
-              Em destaque esta semana
+              Fornos profissionais
             </h2>
           </div>
           <LocalizedClientLink
-            href="/store"
+            href={`/collections/${FEATURED_COLLECTION}`}
             className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.04em] text-brand-cyan small:text-xs"
           >
             Ver tudo

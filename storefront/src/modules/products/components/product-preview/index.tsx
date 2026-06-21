@@ -73,8 +73,10 @@ export default async function ProductPreview({
         </div>
 
         {/* Footer action chip (visual only — leads to the PDP, where the dual
-            CTA incl. the salesperson-contact widget lives). */}
-        <div className="mt-4">
+            CTA incl. the salesperson-contact widget lives). mt-auto pins it to
+            the bottom so the button aligns across cards regardless of title
+            length (the card is h-full flex-col). */}
+        <div className="mt-auto pt-4">
           <span className="flex w-full items-center justify-center gap-x-1.5 rounded-btn bg-brand-ink px-3 py-2.5 text-xs font-bold uppercase tracking-[0.04em] text-white transition-colors group-hover:bg-brand-cyan">
             <Plus className="h-3.5 w-3.5" /> Carrinho
           </span>

@@ -25,7 +25,7 @@ const Hero = async ({ image }: { image?: string | null }) => {
           src="/higitotal/favicon.svg"
           alt=""
           aria-hidden
-          className="pointer-events-none absolute -bottom-7 -left-7 z-[1] h-36 w-36 rotate-[-18deg] opacity-[0.12] [filter:brightness(0)_invert(1)] small:h-48 small:w-48"
+          className="pointer-events-none absolute -bottom-7 -right-7 z-[1] h-36 w-36 rotate-[18deg] opacity-[0.12] [filter:brightness(0)_invert(1)] small:h-48 small:w-48"
         />
 
         <div className="relative z-[2] small:flex-[1_1_56%]">
