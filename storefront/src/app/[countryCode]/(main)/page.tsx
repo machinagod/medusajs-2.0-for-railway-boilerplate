@@ -6,7 +6,6 @@ import TrustBar from "@modules/home/components/trust-bar"
 import CategoryCards from "@modules/home/components/category-cards"
 import AtFeature from "@modules/home/components/at-feature"
 import Suppliers from "@modules/home/components/suppliers"
-import Newsletter from "@modules/home/components/newsletter"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { getCollectionsWithProducts } from "@lib/data/collections"
 import { getRegion } from "@lib/data/regions"
@@ -66,8 +65,6 @@ export default async function Home({
       <AtFeature />
 
       <Suppliers />
-
-      <Newsletter />
     </div>
   )
 }
