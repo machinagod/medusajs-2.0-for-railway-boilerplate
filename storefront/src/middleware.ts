@@ -85,33 +85,49 @@ async function getCountryCode(
 }
 
 /**
- * Optional site-wide HTTP Basic Auth gate (pre-launch protection).
+ * Optional site-wide GET-token gate (pre-launch protection).
  *
- * Active ONLY when STOREFRONT_BASIC_AUTH_PASSWORD is set — otherwise this is a
- * no-op and the site is public, so deploying the code never locks anyone out
- * until the password is configured. Username defaults to "higitotal" and can be
- * overridden with STOREFRONT_BASIC_AUTH_USER. Read at runtime (not a build-time
- * NEXT_PUBLIC_* var), so the password can be set/rotated on Railway without a
- * rebuild. The healthcheck (/api/healthcheck) is unaffected — /api is excluded
- * by the matcher below, so this never runs on it.
+ * Active ONLY when STOREFRONT_ACCESS_TOKEN is set — otherwise a no-op (the site
+ * is public), so deploying the code never locks anyone out until the token is
+ * configured. Access is granted by opening any URL with ?token=<the token>
+ * (param name overridable via STOREFRONT_ACCESS_PARAM): the token is validated,
+ * stored in an httpOnly "ht_access" cookie, and stripped from the URL (redirect)
+ * so it isn't leaked in shares/referrers. Subsequent requests pass via the
+ * cookie. Without a valid cookie or token, the request is blocked (401). Read at
+ * runtime (not a NEXT_PUBLIC_* var) so the token can be set/rotated on Railway
+ * without a rebuild. The healthcheck (/api/healthcheck) is unaffected — /api is
+ * excluded by the matcher below, so this never runs on it.
  */
-function basicAuthGate(request: NextRequest): NextResponse | null {
-  const password = process.env.STOREFRONT_BASIC_AUTH_PASSWORD
-  if (!password) {
+function accessTokenGate(request: NextRequest): NextResponse | null {
+  const token = process.env.STOREFRONT_ACCESS_TOKEN
+  if (!token) {
     return null
   }
-  const user = process.env.STOREFRONT_BASIC_AUTH_USER || "higitotal"
-  const expected = `Basic ${btoa(`${user}:${password}`)}`
-  if (request.headers.get("authorization") === expected) {
+  const param = process.env.STOREFRONT_ACCESS_PARAM || "token"
+
+  // already authorized via the access cookie
+  if (request.cookies.get("ht_access")?.value === token) {
     return null
   }
-  return new NextResponse("Authentication required.", {
+
+  // token supplied in the query string → set the cookie and strip it from the URL
+  const supplied = request.nextUrl.searchParams.get(param)
+  if (supplied && supplied === token) {
+    const url = request.nextUrl.clone()
+    url.searchParams.delete(param)
+    const res = NextResponse.redirect(url)
+    res.cookies.set("ht_access", token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 30, // 30 days
+    })
+    return res
+  }
+
+  return new NextResponse("Acesso restrito — token de acesso necessário.", {
     status: 401,
-    headers: {
-      // ASCII only — non-ASCII (e.g. an em dash) in a header value throws in
-      // the Edge runtime and turns the 401 into a 500.
-      "WWW-Authenticate": 'Basic realm="Higitotal", charset="UTF-8"',
-    },
   })
 }
 
@@ -119,9 +135,9 @@ function basicAuthGate(request: NextRequest): NextResponse | null {
  * Middleware to handle region selection and onboarding status.
  */
 export async function middleware(request: NextRequest) {
-  const authChallenge = basicAuthGate(request)
-  if (authChallenge) {
-    return authChallenge
+  const accessChallenge = accessTokenGate(request)
+  if (accessChallenge) {
+    return accessChallenge
   }
 
   const searchParams = request.nextUrl.searchParams
