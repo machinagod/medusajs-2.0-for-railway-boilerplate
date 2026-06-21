@@ -494,13 +494,18 @@ async function syncPriceLists(
     if (pl.title) listByTitle.set(pl.title, pl.id)
   }
 
+  // Moloni price-class / cost lists are created as DRAFT so they never apply to
+  // storefront carts — otherwise Medusa resolves to the cheapest applicable
+  // price and leaks supplier cost / wholesale (PVP2…) as the public price. The
+  // store uses the variant's default price (= PVP1); these drafts keep cost and
+  // alternate classes visible in admin for margin analysis only.
   const ensureList = async (title: string, description: string) => {
     const existing = listByTitle.get(title)
     if (existing) return existing
     const { result } = await createPriceListsWorkflow(container).run({
       input: {
         price_lists_data: [
-          { title, description, type: "override", status: "active" } as any,
+          { title, description, type: "override", status: "draft" } as any,
         ],
       },
     })
