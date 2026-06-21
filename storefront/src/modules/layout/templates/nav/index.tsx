@@ -6,7 +6,7 @@ import { StoreRegion } from "@medusajs/types"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import CartButton from "@modules/layout/components/cart-button"
 import SideMenu from "@modules/layout/components/side-menu"
-import HigiIcon from "@modules/common/icons/higi-icon"
+import { Phone, Search, User, ShoppingBag, Wrench } from "lucide-react"
 
 export default async function Nav() {
   const regions = await listRegions().then((regions: StoreRegion[]) => regions)
@@ -28,7 +28,7 @@ export default async function Nav() {
               href="tel:+351278262913"
               className="flex items-center gap-x-2 hover:text-white transition-colors"
             >
-              <HigiIcon name="phone" className="h-3.5 w-3.5" />
+              <Phone className="h-3.5 w-3.5" />
               <span className="font-semibold text-white">
                 +351 278 262 913
               </span>
@@ -78,7 +78,7 @@ export default async function Nav() {
                 Pesquisar produtos, marcas ou referências…
               </span>
               <span className="flex-none flex items-center justify-center w-10 h-10 rounded-pill bg-brand-cyan text-white">
-                <HigiIcon name="search" className="h-[18px] w-[18px]" />
+                <Search className="h-[18px] w-[18px]" />
               </span>
             </LocalizedClientLink>
           )}
@@ -89,7 +89,7 @@ export default async function Nav() {
               data-testid="nav-account-link"
               className="hidden small:flex items-center gap-x-2.5 px-4 py-2.5 rounded-pill text-xs font-semibold uppercase tracking-wide text-brand-ink hover:bg-[#f1f4f7] transition-colors"
             >
-              <HigiIcon name="user" className="h-[18px] w-[18px]" />
+              <User className="h-[18px] w-[18px]" />
               <span>Conta</span>
             </LocalizedClientLink>
 
@@ -100,7 +100,7 @@ export default async function Nav() {
                   data-testid="nav-cart-link"
                   className="flex items-center gap-x-1.5 small:gap-x-2.5 px-3 small:px-4 py-2.5 rounded-pill bg-brand-ink text-white text-xs font-semibold uppercase tracking-wide hover:bg-black transition-colors"
                 >
-                  <HigiIcon name="bag" className="h-[18px] w-[18px]" />
+                  <ShoppingBag className="h-[18px] w-[18px]" />
                   <span className="hidden small:inline">Carrinho</span>
                   <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-pill bg-brand-cyan text-white text-[11px] font-bold">
                     0
@@ -136,7 +136,7 @@ export default async function Nav() {
             data-testid="nav-assistencia-link"
             className="ml-auto sticky right-0 flex-none flex items-center gap-x-2 whitespace-nowrap bg-svc-signal text-white px-3 small:px-[18px] py-2.5 rounded-pill text-xs font-bold uppercase tracking-wide hover:bg-svc-signal-ink transition-colors"
           >
-            <HigiIcon name="wrench" className="h-4 w-4" />
+            <Wrench className="h-4 w-4" />
             <span className="hidden small:inline">Assistência Técnica</span>
           </LocalizedClientLink>
         </div>

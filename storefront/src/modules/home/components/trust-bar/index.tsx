@@ -1,23 +1,23 @@
-import HigiIcon from "@modules/common/icons/higi-icon"
+import { Truck, Award, Star, Headphones, type LucideIcon } from "lucide-react"
 
-const ITEMS = [
+const ITEMS: { Icon: LucideIcon; title: string; subtitle: string }[] = [
   {
-    icon: "truck",
+    Icon: Truck,
     title: "Entrega rápida",
     subtitle: "Portugal Continental",
   },
   {
-    icon: "award",
+    Icon: Award,
     title: "27 anos",
     subtitle: "de experiência",
   },
   {
-    icon: "star",
+    Icon: Star,
     title: "Marcas líderes",
     subtitle: "Fagor · Sammic · Nilfisk",
   },
   {
-    icon: "headset",
+    Icon: Headphones,
     title: "Assistência própria",
     subtitle: "Equipa técnica certificada",
   },
@@ -39,7 +39,7 @@ const TrustBar = () => {
             className={`flex items-center gap-2.5 border-[#eef1f4] p-3.5 small:gap-3.5 small:border-b-0 small:px-6 small:py-5 ${mobileRight} ${mobileBottom} ${desktopRight}`}
           >
             <span className="flex h-9 w-9 flex-none items-center justify-center rounded-[12px] bg-[#eaf7fe] text-brand-cyan small:h-[42px] small:w-[42px]">
-              <HigiIcon name={item.icon} className="h-[18px] w-[18px] small:h-5 small:w-5" />
+              <item.Icon className="h-[18px] w-[18px] small:h-5 small:w-5" />
             </span>
             <div>
               <b className="block text-[13px] font-bold leading-tight text-brand-ink small:text-sm">

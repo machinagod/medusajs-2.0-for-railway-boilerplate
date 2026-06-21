@@ -66,30 +66,39 @@ export const getNavCategories = cache(async function () {
     .map((c: any) => ({
       label: c.name as string,
       href: `/categories/${c.handle}`,
-      icon: categoryIconName(c.name),
+      icon: resolveCategoryIcon(c),
     }))
 })
+
+/** The Lucide icon id for a category: an explicit choice in `metadata.icon`
+ * (set via the admin picker) wins; otherwise a keyword-derived default. */
+export function resolveCategoryIcon(c: any): string {
+  const chosen = c?.metadata?.icon
+  if (typeof chosen === "string" && chosen.trim()) return chosen.trim()
+  return categoryIconName(c?.name || "")
+}
 
 function isNavHidden(c: any): boolean {
   const v = c?.metadata?.nav_hidden
   return v === true || v === "true" || v === 1 || v === "1"
 }
 
-/** Map a category name to a Lucide-style icon id (see HIGI_ICONS). Pure string
- * helper so the data layer stays free of JSX imports. */
+/** Keyword-derived default Lucide icon id (kebab-case) for a category name.
+ * Used when the category has no explicit `metadata.icon`. Pure string helper so
+ * the data layer stays free of JSX imports. */
 export function categoryIconName(name: string): string {
   const n = (name || "").toLowerCase()
-  if (n.includes("detergent") || n.includes("químic") || n.includes("lavandar")) return "droplet"
-  if (n.includes("máquina") || n.includes("maquina")) return "cog"
+  if (n.includes("detergent") || n.includes("químic") || n.includes("lavandar")) return "spray-can"
+  if (n.includes("máquina") || n.includes("maquina")) return "washing-machine"
   if (n.includes("utensílio") || n.includes("utensilio") || n.includes("esfreg") || n.includes("mopa")) return "brush"
-  if (n.includes("hotel") || n.includes("cozinha") || n.includes("catering")) return "utensils"
-  if (n.includes("papel") || n.includes("toalha") || n.includes("guardanapo")) return "list"
-  if (n.includes("saco")) return "bag"
-  if (n.includes("ambientador") || n.includes("inseticida")) return "spark"
-  if (n.includes("descartá") || n.includes("descarta")) return "box"
-  if (n.includes("dispensador") || n.includes("suporte")) return "shield"
+  if (n.includes("hotel") || n.includes("cozinha") || n.includes("catering")) return "cooking-pot"
+  if (n.includes("papel") || n.includes("toalha") || n.includes("guardanapo")) return "scroll-text"
+  if (n.includes("saco")) return "shopping-bag"
+  if (n.includes("ambientador") || n.includes("inseticida")) return "wind"
+  if (n.includes("descartá") || n.includes("descarta")) return "utensils-crossed"
+  if (n.includes("dispensador") || n.includes("suporte")) return "container"
   if (n.includes("assist") || n.includes("técnic") || n.includes("tecnic")) return "wrench"
-  return "box"
+  return "package"
 }
 
 /**
