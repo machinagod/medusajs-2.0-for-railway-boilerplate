@@ -11,6 +11,7 @@ import ProductSpecSheet from "@modules/products/components/product-spec-sheet"
 import SkeletonRelatedProducts from "@modules/skeletons/templates/skeleton-related-products"
 import { notFound } from "next/navigation"
 import ProductActionsWrapper from "./product-actions-wrapper"
+import PathBar from "@modules/products/components/path-bar"
 import { HttpTypes } from "@medusajs/types"
 
 type ProductTemplateProps = {
@@ -30,6 +31,9 @@ const ProductTemplate: React.FC<ProductTemplateProps> = ({
 
   return (
     <>
+      <Suspense fallback={null}>
+        <PathBar product={product} countryCode={countryCode} />
+      </Suspense>
       <div
         className="content-container flex flex-col small:flex-row small:items-start py-6 relative"
         data-testid="product-container"
