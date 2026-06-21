@@ -1,20 +1,16 @@
 import { Suspense } from "react"
 
 import { listRegions } from "@lib/data/regions"
+import { getNavCategories } from "@lib/data/categories"
 import { StoreRegion } from "@medusajs/types"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import CartButton from "@modules/layout/components/cart-button"
 import SideMenu from "@modules/layout/components/side-menu"
-
-const categories = [
-  { label: "Detergentes", href: "/store" },
-  { label: "Utensílios de Limpeza", href: "/store" },
-  { label: "Máquinas de Limpeza", href: "/store" },
-  { label: "Equipamento Hoteleiro", href: "/store" },
-]
+import HigiIcon from "@modules/common/icons/higi-icon"
 
 export default async function Nav() {
   const regions = await listRegions().then((regions: StoreRegion[]) => regions)
+  const categories = await getNavCategories()
 
   return (
     <div className="sticky top-0 inset-x-0 z-50">
@@ -32,7 +28,7 @@ export default async function Nav() {
               href="tel:+351278262913"
               className="flex items-center gap-x-2 hover:text-white transition-colors"
             >
-              <span aria-hidden="true">☎</span>
+              <HigiIcon name="phone" className="h-3.5 w-3.5" />
               <span className="font-semibold text-white">
                 +351 278 262 913
               </span>
@@ -82,7 +78,7 @@ export default async function Nav() {
                 Pesquisar produtos, marcas ou referências…
               </span>
               <span className="flex-none flex items-center justify-center w-10 h-10 rounded-pill bg-brand-cyan text-white">
-                <SearchIcon />
+                <HigiIcon name="search" className="h-[18px] w-[18px]" />
               </span>
             </LocalizedClientLink>
           )}
@@ -93,7 +89,7 @@ export default async function Nav() {
               data-testid="nav-account-link"
               className="hidden small:flex items-center gap-x-2.5 px-4 py-2.5 rounded-pill text-xs font-semibold uppercase tracking-wide text-brand-ink hover:bg-[#f1f4f7] transition-colors"
             >
-              <UserIcon />
+              <HigiIcon name="user" className="h-[18px] w-[18px]" />
               <span>Conta</span>
             </LocalizedClientLink>
 
@@ -104,7 +100,7 @@ export default async function Nav() {
                   data-testid="nav-cart-link"
                   className="flex items-center gap-x-1.5 small:gap-x-2.5 px-3 small:px-4 py-2.5 rounded-pill bg-brand-ink text-white text-xs font-semibold uppercase tracking-wide hover:bg-black transition-colors"
                 >
-                  <BagIcon />
+                  <HigiIcon name="bag" className="h-[18px] w-[18px]" />
                   <span className="hidden small:inline">Carrinho</span>
                   <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-pill bg-brand-cyan text-white text-[11px] font-bold">
                     0
@@ -140,19 +136,7 @@ export default async function Nav() {
             data-testid="nav-assistencia-link"
             className="ml-auto sticky right-0 flex-none flex items-center gap-x-2 whitespace-nowrap bg-svc-signal text-white px-3 small:px-[18px] py-2.5 rounded-pill text-xs font-bold uppercase tracking-wide hover:bg-svc-signal-ink transition-colors"
           >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
-            </svg>
+            <HigiIcon name="wrench" className="h-4 w-4" />
             <span className="hidden small:inline">Assistência Técnica</span>
           </LocalizedClientLink>
         </div>
@@ -160,55 +144,3 @@ export default async function Nav() {
     </div>
   )
 }
-
-const SearchIcon = () => (
-  <svg
-    width="18"
-    height="18"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
-    <circle cx="11" cy="11" r="8" />
-    <path d="m21 21-4.35-4.35" />
-  </svg>
-)
-
-const UserIcon = () => (
-  <svg
-    width="18"
-    height="18"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
-    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-    <circle cx="12" cy="7" r="4" />
-  </svg>
-)
-
-const BagIcon = () => (
-  <svg
-    width="18"
-    height="18"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
-    <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" />
-    <path d="M3 6h18" />
-    <path d="M16 10a4 4 0 0 1-8 0" />
-  </svg>
-)

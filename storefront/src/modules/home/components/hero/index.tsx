@@ -1,6 +1,11 @@
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
+import { getFeaturedCategories } from "@lib/data/categories"
 
-const Hero = () => {
+const Hero = async () => {
+  const featured = await getFeaturedCategories()
+  const href = (label: string) =>
+    featured.find((c) => c.label === label)?.href ?? "/store"
+
   return (
     <div className="grid grid-cols-1 gap-5 small:grid-cols-[1.15fr_0.85fr]">
       {/* Main cyan card */}
@@ -40,7 +45,7 @@ const Hero = () => {
               <span aria-hidden>→</span>
             </LocalizedClientLink>
             <LocalizedClientLink
-              href="/store"
+              href={href("Equipamento Hoteleiro")}
               className="inline-flex w-full items-center justify-center gap-2.5 rounded-pill border-[1.5px] border-white/45 bg-white/[0.14] px-6 py-3.5 text-[13px] font-bold uppercase tracking-[0.04em] text-white transition-transform hover:-translate-y-0.5 hover:bg-white/25 small:w-auto small:justify-start"
             >
               Equipamento hoteleiro
@@ -69,7 +74,7 @@ const Hero = () => {
               Menos embalagem, mais rendimento. Gama profissional.
             </p>
             <LocalizedClientLink
-              href="/store"
+              href={href("Detergentes")}
               className="mt-4 inline-flex items-center gap-2.5 text-xs font-bold uppercase tracking-[0.04em] text-brand-ink"
             >
               Comprar
