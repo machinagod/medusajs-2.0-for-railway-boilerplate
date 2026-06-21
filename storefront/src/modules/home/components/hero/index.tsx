@@ -19,6 +19,14 @@ const Hero = async ({ image }: { image?: string | null }) => {
           aria-hidden
           className="pointer-events-none absolute -bottom-40 right-16 hidden h-80 w-80 rounded-full bg-white/[0.06] small:block"
         />
+        {/* Watermark — Higitotal mark, faint and diagonal in the corner */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/higitotal/favicon.svg"
+          alt=""
+          aria-hidden
+          className="pointer-events-none absolute -bottom-7 -left-7 z-[1] h-36 w-36 rotate-[-18deg] opacity-[0.12] [filter:brightness(0)_invert(1)] small:h-48 small:w-48"
+        />
 
         <div className="relative z-[2] small:flex-[1_1_56%]">
           <span className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-[#bdeaff]">

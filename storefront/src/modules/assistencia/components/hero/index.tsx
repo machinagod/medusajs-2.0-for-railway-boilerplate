@@ -1,4 +1,4 @@
-import { Phone } from "lucide-react"
+import { Phone, ArrowRight, ArrowLeft } from "lucide-react"
 
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 
@@ -48,7 +48,8 @@ const Hero = () => {
               href="#pedir"
               className="inline-flex items-center gap-[10px] rounded-pill bg-svc-signal px-7 py-[15px] text-[13px] font-bold uppercase tracking-[0.04em] text-white shadow-[0_12px_30px_rgba(255,122,26,0.32)] transition hover:-translate-y-0.5 hover:bg-svc-signal-ink"
             >
-              Pedir assistência →
+              Pedir assistência
+              <ArrowRight className="h-4 w-4" />
             </a>
             <a
               href="tel:+351278262913"
@@ -118,9 +119,10 @@ const Hero = () => {
       <div className="content-container relative z-[2] mt-8">
         <LocalizedClientLink
           href="/store"
-          className="text-xs font-semibold uppercase tracking-[0.03em] text-svc-fg-muted transition hover:text-white"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.03em] text-svc-fg-muted transition hover:text-white"
         >
-          ← Voltar à loja
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Voltar à loja
         </LocalizedClientLink>
       </div>
     </div>

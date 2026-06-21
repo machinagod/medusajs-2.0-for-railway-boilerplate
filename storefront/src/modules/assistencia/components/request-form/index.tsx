@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Phone, Mail, MapPin, Check } from "lucide-react"
+import { Phone, Mail, MapPin, Check, ArrowRight } from "lucide-react"
 import { sdk } from "@lib/config"
 
 /**
@@ -238,9 +238,14 @@ const RequestForm = () => {
                 disabled={status === "sending"}
                 className="flex w-full items-center justify-center gap-[10px] rounded-pill bg-svc-signal px-7 py-[15px] text-[13px] font-bold uppercase tracking-[0.04em] text-white shadow-[0_12px_30px_rgba(255,122,26,0.32)] transition hover:bg-svc-signal-ink disabled:opacity-60"
               >
-                {status === "sending"
-                  ? "A enviar…"
-                  : "Enviar pedido de assistência →"}
+                {status === "sending" ? (
+                  "A enviar…"
+                ) : (
+                  <>
+                    Enviar pedido de assistência
+                    <ArrowRight className="h-4 w-4" />
+                  </>
+                )}
               </button>
             </div>
             <p className="text-center text-xs font-medium leading-relaxed text-grey-50 sm:col-span-2">

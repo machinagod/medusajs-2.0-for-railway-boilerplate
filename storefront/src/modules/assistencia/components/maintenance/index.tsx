@@ -1,4 +1,4 @@
-import { Check } from "lucide-react"
+import { Check, ArrowRight } from "lucide-react"
 
 const POINTS = [
   {
@@ -45,7 +45,8 @@ const Maintenance = () => {
               href="#pedir"
               className="inline-flex items-center gap-[10px] rounded-pill bg-svc-signal px-7 py-[15px] text-[13px] font-bold uppercase tracking-[0.04em] text-white shadow-[0_12px_30px_rgba(255,122,26,0.32)] transition hover:-translate-y-0.5 hover:bg-svc-signal-ink"
             >
-              Falar com a equipa →
+              Falar com a equipa
+              <ArrowRight className="h-4 w-4" />
             </a>
           </div>
         </div>
