@@ -35,8 +35,11 @@ const CategoryIconWidget = ({
   data,
 }: DetailWidgetProps<AdminProductCategory>) => {
   const categoryId = data.id
-  const initial = ((data.metadata as Record<string, unknown>)?.icon as string) || ""
-  const [selected, setSelected] = useState(initial)
+  const md0 = (data.metadata as Record<string, unknown>) || {}
+  const [selected, setSelected] = useState((md0.icon as string) || "")
+  const [navOrder, setNavOrder] = useState(
+    md0.nav_order != null ? String(md0.nav_order) : ""
+  )
   const [query, setQuery] = useState("")
   const [saving, setSaving] = useState(false)
 
@@ -46,31 +49,39 @@ const CategoryIconWidget = ({
     return ALL_ICON_NAMES.filter((n) => n.includes(q)).slice(0, 48)
   }, [query])
 
-  const save = async (next: string) => {
+  // Persist icon + nav_order together (the POST replaces metadata, so always
+  // send both from local state, preserving any other keys).
+  const persist = async (next: { icon?: string; navOrder?: string }) => {
+    const icon = next.icon !== undefined ? next.icon : selected
+    const order = next.navOrder !== undefined ? next.navOrder : navOrder
     setSaving(true)
     try {
-      const metadata: Record<string, unknown> = {
-        ...((data.metadata as Record<string, unknown>) || {}),
-      }
-      if (next) metadata.icon = next
+      const metadata: Record<string, unknown> = { ...md0 }
+      if (icon) metadata.icon = icon
       else delete metadata.icon
+      const n = parseInt(order, 10)
+      if (order.trim() !== "" && Number.isFinite(n)) metadata.nav_order = n
+      else delete metadata.nav_order
       await sdk.client.fetch(`/admin/product-categories/${categoryId}`, {
         method: "POST",
         body: { metadata },
       })
-      setSelected(next)
-      toast.success(next ? `Icon set to “${next}”` : "Icon cleared (uses default)")
+      setSelected(icon)
+      setNavOrder(order)
+      toast.success("Storefront nav settings saved")
     } catch (e) {
-      toast.error("Failed to save category icon")
+      toast.error("Failed to save storefront nav settings")
     } finally {
       setSaving(false)
     }
   }
 
+  const save = (next: string) => persist({ icon: next })
+
   return (
     <Container className="divide-y p-0">
       <div className="flex items-center justify-between px-6 py-4">
-        <Heading level="h2">Storefront icon</Heading>
+        <Heading level="h2">Storefront nav</Heading>
         <div className="flex items-center gap-2">
           {selected && (
             <span className="flex items-center gap-2 rounded-md bg-ui-bg-subtle px-2 py-1">
@@ -128,6 +139,32 @@ const CategoryIconWidget = ({
             ))}
           </div>
         )}
+      </div>
+
+      <div className="px-6 py-4">
+        <Text size="small" weight="plus" className="mb-1">
+          Nav order
+        </Text>
+        <Text size="small" className="text-ui-fg-subtle mb-3">
+          Lower numbers appear first in the top-level navigator and home cards.
+          Leave empty to fall back to the category rank.
+        </Text>
+        <div className="flex items-center gap-2">
+          <Input
+            type="number"
+            placeholder="e.g. 1"
+            value={navOrder}
+            onChange={(e) => setNavOrder(e.target.value)}
+            className="max-w-[140px]"
+          />
+          <Button
+            size="small"
+            onClick={() => persist({ navOrder })}
+            isLoading={saving}
+          >
+            Save order
+          </Button>
+        </div>
       </div>
     </Container>
   )

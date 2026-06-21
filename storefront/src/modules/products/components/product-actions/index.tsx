@@ -14,6 +14,7 @@ import ContactModal from "../contact-modal"
 import { addToCart } from "@lib/data/cart"
 import { getProductPrice } from "@lib/util/get-product-price"
 import { HttpTypes } from "@medusajs/types"
+import { Phone, ArrowRight } from "lucide-react"
 
 type ProductActionsProps = {
   product: HttpTypes.StoreProduct
@@ -202,13 +203,18 @@ export default function ProductActions({
             data-testid="add-product-button"
             className="flex-1 h-[52px] rounded-btn bg-brand-ink text-white font-bold uppercase tracking-wide text-small-regular flex items-center justify-center gap-2 transition hover:bg-brand-cyan hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:bg-brand-ink"
           >
-            {!selectedVariant
-              ? "Selecionar variante"
-              : !inStock
-              ? "Esgotado"
-              : isAdding
-              ? "A adicionar…"
-              : "Adicionar ao carrinho →"}
+            {!selectedVariant ? (
+              "Selecionar variante"
+            ) : !inStock ? (
+              "Esgotado"
+            ) : isAdding ? (
+              "A adicionar…"
+            ) : (
+              <>
+                Adicionar ao carrinho
+                <ArrowRight className="h-4 w-4" />
+              </>
+            )}
           </button>
         </div>
 
@@ -219,7 +225,8 @@ export default function ProductActions({
           data-testid="contact-cta"
           className="w-full h-[52px] mt-3 rounded-btn bg-white text-brand-cyan border-[1.5px] border-brand-cyan font-bold uppercase tracking-wide text-small-regular flex items-center justify-center gap-2 transition hover:bg-brand-cyan hover:text-white hover:-translate-y-0.5"
         >
-          ☎ Pedir contacto a um comercial
+          <Phone className="h-4 w-4" />
+          Pedir contacto a um comercial
         </button>
 
         <p className="flex items-center justify-center gap-1.5 mt-3 text-xsmall-regular text-grey-50 text-center">

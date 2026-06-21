@@ -22,14 +22,33 @@ export const getCategoriesList = cache(async function (
 export const getCategoryByHandle = cache(async function (
   categoryHandle: string[]
 ) {
-
   return sdk.store.category.list(
-    // TODO: Look into fixing the type
-    // @ts-ignore
-    { handle: categoryHandle },
+    {
+      handle: categoryHandle,
+      // Pull the full descendant tree so a top-level category can list products
+      // from all of its sub-categories (most products live on the leaves).
+      include_descendants_tree: true,
+      fields: "id,name,handle,description,*category_children",
+    } as any,
     { next: { tags: ["categories"] } }
   )
 })
+
+/**
+ * Collect a category's own id plus every descendant id from its
+ * `category_children` tree (populated by `include_descendants_tree`). Used to
+ * list products from a category AND all of its sub-categories.
+ */
+export function collectCategoryIds(category: any): string[] {
+  const ids: string[] = []
+  const walk = (c: any) => {
+    if (!c?.id) return
+    ids.push(c.id)
+    for (const child of c.category_children || []) walk(child)
+  }
+  walk(category)
+  return ids
+}
 
 /**
  * Retrieve a single category with its immediate parent and children. Used by the
@@ -139,9 +158,46 @@ export const getRootCategories = cache(async function () {
       { next: { tags: ["categories"] } }
     )
     .then(({ product_categories }) =>
-      [...(product_categories || [])].sort(
-        (a: any, b: any) => (a.rank ?? 0) - (b.rank ?? 0)
-      )
+      [...(product_categories || [])].sort(navSortKey)
     )
     .catch(() => [])
 })
+
+/**
+ * Order categories for the storefront nav. Precedence:
+ *   1. explicit `metadata.nav_order` (set per-category in the admin) — wins,
+ *   2. a flagship-led default for the known product lines (so the nav reads
+ *      intentionally out of the box instead of alphabetically),
+ *   3. the Medusa `rank`, then name.
+ * A merchant can override any position from the admin "Storefront nav" widget
+ * without touching code; new categories fall through to rank/name.
+ */
+const DEFAULT_NAV_PRIORITY: Record<string, number> = {
+  detergentes: 1,
+  "utensilios-limpeza": 2,
+  "maquinas-de-limpeza": 3,
+  "equipamento-hoteleiro": 4,
+  papel: 5,
+  descartaveis: 6,
+  sacos: 7,
+  "ambientador-e-inseticidas": 8,
+  "suportes-e-dispensadores": 9,
+}
+
+function navSortKey(a: any, b: any): number {
+  const ao = navOrder(a)
+  const bo = navOrder(b)
+  if (ao !== bo) return ao - bo
+  const ap = DEFAULT_NAV_PRIORITY[a?.handle] ?? Number.MAX_SAFE_INTEGER
+  const bp = DEFAULT_NAV_PRIORITY[b?.handle] ?? Number.MAX_SAFE_INTEGER
+  if (ap !== bp) return ap - bp
+  const ar = a?.rank ?? Number.MAX_SAFE_INTEGER
+  const br = b?.rank ?? Number.MAX_SAFE_INTEGER
+  if (ar !== br) return ar - br
+  return String(a?.name || "").localeCompare(String(b?.name || ""))
+}
+
+function navOrder(c: any): number {
+  const v = Number(c?.metadata?.nav_order)
+  return Number.isFinite(v) ? v : Number.MAX_SAFE_INTEGER
+}

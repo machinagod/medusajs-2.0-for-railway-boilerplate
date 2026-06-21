@@ -8,6 +8,7 @@ import { SortOptions } from "@modules/store/components/refinement-list/sort-prod
 import PaginatedProducts from "@modules/store/templates/paginated-products"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { HttpTypes } from "@medusajs/types"
+import { collectCategoryIds } from "@lib/data/categories"
 
 export default function CategoryTemplate({
   categories,
@@ -27,6 +28,10 @@ export default function CategoryTemplate({
   const parents = categories.slice(0, categories.length - 1)
 
   if (!category || !countryCode) notFound()
+
+  // Include the category itself AND every sub-category, so selecting a top-level
+  // category shows the products that live on its leaves (not an empty page).
+  const categoryIds = collectCategoryIds(category)
 
   return (
     <div
@@ -73,7 +78,7 @@ export default function CategoryTemplate({
           <PaginatedProducts
             sortBy={sort}
             page={pageNumber}
-            categoryId={category.id}
+            categoryId={categoryIds}
             countryCode={countryCode}
           />
         </Suspense>

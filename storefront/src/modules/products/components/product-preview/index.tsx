@@ -4,6 +4,7 @@ import Thumbnail from "../thumbnail"
 import PreviewPrice from "./price"
 import { getProductsById } from "@lib/data/products"
 import { HttpTypes } from "@medusajs/types"
+import { Plus } from "lucide-react"
 
 export default async function ProductPreview({
   product,
@@ -71,13 +72,11 @@ export default async function ProductPreview({
           {cheapestPrice && <PreviewPrice price={cheapestPrice} />}
         </div>
 
-        {/* Footer action chips (visual only — lead to the PDP dual-CTA) */}
-        <div className="mt-4 flex items-center gap-x-2">
-          <span className="inline-flex flex-1 items-center justify-center gap-x-1.5 rounded-btn bg-brand-ink px-3 py-2.5 text-xs font-bold uppercase tracking-[0.04em] text-white transition-colors group-hover:bg-brand-cyan">
-            <span aria-hidden="true">+</span> Carrinho
-          </span>
-          <span className="inline-flex items-center justify-center gap-x-1.5 rounded-btn border border-hairline px-3 py-2.5 text-xs font-bold uppercase tracking-[0.04em] text-brand-ink transition-colors group-hover:border-brand-cyan group-hover:text-brand-cyan-ink">
-            <span aria-hidden="true">☎</span> Contacto
+        {/* Footer action chip (visual only — leads to the PDP, where the dual
+            CTA incl. the salesperson-contact widget lives). */}
+        <div className="mt-4">
+          <span className="flex w-full items-center justify-center gap-x-1.5 rounded-btn bg-brand-ink px-3 py-2.5 text-xs font-bold uppercase tracking-[0.04em] text-white transition-colors group-hover:bg-brand-cyan">
+            <Plus className="h-3.5 w-3.5" /> Carrinho
           </span>
         </div>
       </div>

@@ -6,7 +6,8 @@ import { StoreRegion } from "@medusajs/types"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import CartButton from "@modules/layout/components/cart-button"
 import SideMenu from "@modules/layout/components/side-menu"
-import { Phone, Search, User, ShoppingBag, Wrench } from "lucide-react"
+import CategoryNav from "@modules/layout/components/category-nav"
+import { Phone, Search, User, ShoppingBag } from "lucide-react"
 
 export default async function Nav() {
   const regions = await listRegions().then((regions: StoreRegion[]) => regions)
@@ -119,28 +120,8 @@ export default async function Nav() {
         </div>
       </header>
 
-      {/* Category nav strip — horizontal scroll on mobile */}
-      <nav className="bg-white border-b border-hairline">
-        <div className="content-container flex items-center gap-x-1 h-[54px] overflow-x-auto no-scrollbar">
-          {categories.map((cat, idx) => (
-            <LocalizedClientLink
-              key={`${cat.label}-${idx}`}
-              href={cat.href}
-              className="whitespace-nowrap flex-none px-4 py-2.5 rounded-[10px] text-[13px] font-semibold text-[#4a5560] hover:bg-[#f1f4f7] hover:text-brand-ink transition-colors"
-            >
-              {cat.label}
-            </LocalizedClientLink>
-          ))}
-          <LocalizedClientLink
-            href="/assistencia-tecnica"
-            data-testid="nav-assistencia-link"
-            className="ml-auto sticky right-0 flex-none flex items-center gap-x-2 whitespace-nowrap bg-svc-signal text-white px-3 small:px-[18px] py-2.5 rounded-pill text-xs font-bold uppercase tracking-wide hover:bg-svc-signal-ink transition-colors"
-          >
-            <Wrench className="h-4 w-4" />
-            <span className="hidden small:inline">Assistência Técnica</span>
-          </LocalizedClientLink>
-        </div>
-      </nav>
+      {/* Category nav strip — dynamic top-level categories, active-aware */}
+      <CategoryNav categories={categories} />
     </div>
   )
 }
