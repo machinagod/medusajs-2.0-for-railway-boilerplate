@@ -29,10 +29,15 @@ export default async function Home({
   }
 
   // Populate the "Em destaque" rail directly from the catalog (the store has no
-  // collections), so the section is never empty.
+  // collections), so the section is never empty. Prefer products that actually
+  // have an image — the first products in default order have no thumbnail, which
+  // left the rail (and the hero media) showing blank placeholders. Fall back to
+  // the raw pool if too few have images.
   const {
-    response: { products: featured },
-  } = await getProductsList({ queryParams: { limit: 8 }, countryCode })
+    response: { products: pool },
+  } = await getProductsList({ queryParams: { limit: 100 }, countryCode })
+  const withImage = pool.filter((p) => p.thumbnail)
+  const featured = (withImage.length >= 8 ? withImage : pool).slice(0, 8)
 
   return (
     <div className="content-container flex flex-col gap-9 py-4 small:gap-16 small:py-10">
