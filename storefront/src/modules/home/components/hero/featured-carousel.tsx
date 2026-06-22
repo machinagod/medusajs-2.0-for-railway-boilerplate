@@ -5,6 +5,8 @@ import LocalizedClientLink from "@modules/common/components/localized-client-lin
 import { ArrowRight } from "lucide-react"
 import { SLIDES } from "@modules/home/components/hero/featured-slides"
 
+const SLIDE_MS = 5000
+
 type FeaturedCarouselProps = {
   // Representative product image per slide, keyed by collection handle. Resolved
   // server-side; a slide with no image (e.g. an empty/draft collection) renders
@@ -23,14 +25,16 @@ const FeaturedCarousel = ({ images }: FeaturedCarouselProps) => {
   const [active, setActive] = useState(0)
   const [paused, setPaused] = useState(false)
 
+  // setTimeout keyed on [paused, active] so the timer restarts whenever the slide
+  // changes (auto-advance or manual), keeping it in sync with the progress bar.
   useEffect(() => {
     if (paused) return
-    const t = setInterval(
+    const t = setTimeout(
       () => setActive((i) => (i + 1) % SLIDES.length),
-      5000
+      SLIDE_MS
     )
-    return () => clearInterval(t)
-  }, [paused])
+    return () => clearTimeout(t)
+  }, [paused, active])
 
   return (
     <div
@@ -90,7 +94,7 @@ const FeaturedCarousel = ({ images }: FeaturedCarouselProps) => {
         })}
       </div>
 
-      <div className="relative z-[2] mt-4 flex gap-1.5">
+      <div className="relative z-[2] mt-4 flex items-center gap-1.5">
         {SLIDES.map((s, idx) => (
           <button
             key={s.href}
@@ -98,10 +102,22 @@ const FeaturedCarousel = ({ images }: FeaturedCarouselProps) => {
             onClick={() => setActive(idx)}
             aria-label={`Ver ${s.title}`}
             aria-current={idx === active}
-            className={`h-1.5 rounded-full transition-all ${
-              idx === active ? "w-5 bg-brand-cyan" : "w-1.5 bg-hairline"
+            className={`relative h-1.5 overflow-hidden rounded-full bg-hairline transition-all ${
+              idx === active ? "w-7" : "w-1.5"
             }`}
-          />
+          >
+            {idx === active && (
+              // Fills left→right over the auto-advance interval to show progress
+              // to the next slide; freezes while the carousel is paused (hover).
+              <span
+                className="absolute inset-0 origin-left rounded-full bg-brand-cyan"
+                style={{
+                  animation: `carousel-progress ${SLIDE_MS}ms linear forwards`,
+                  animationPlayState: paused ? "paused" : "running",
+                }}
+              />
+            )}
+          </button>
         ))}
       </div>
     </div>

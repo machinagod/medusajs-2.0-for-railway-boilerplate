@@ -156,3 +156,13 @@ body {
     @apply text-[32px] leading-[44px] font-semibold;
   }
 }
+
+/* Hero "Em destaque" carousel — active indicator fills to show time-to-next. */
+@keyframes carousel-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}

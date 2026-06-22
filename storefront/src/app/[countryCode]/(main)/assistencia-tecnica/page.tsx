@@ -2,7 +2,6 @@ import { Metadata } from "next"
 
 import Hero from "@modules/assistencia/components/hero"
 import Services from "@modules/assistencia/components/services"
-import Coverage from "@modules/assistencia/components/coverage"
 import Equipment from "@modules/assistencia/components/equipment"
 import Maintenance from "@modules/assistencia/components/maintenance"
 import RequestForm from "@modules/assistencia/components/request-form"
@@ -25,7 +24,6 @@ export default function AssistenciaTecnicaPage({}: Params) {
       <Hero />
       <Services />
       <Maintenance />
-      <Coverage />
       <Equipment />
 
       <section

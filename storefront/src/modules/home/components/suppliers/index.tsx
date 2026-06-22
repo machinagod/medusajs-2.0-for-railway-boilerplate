@@ -16,7 +16,7 @@ const Suppliers = () => {
                 src={brand.logo}
                 alt={brand.name}
                 loading="lazy"
-                className="h-6 w-auto object-contain opacity-70 grayscale transition-all duration-200 hover:opacity-100 hover:grayscale-0 small:h-8"
+                className="h-5 w-auto max-w-[104px] object-contain opacity-70 grayscale transition-all duration-200 hover:opacity-100 hover:grayscale-0 small:h-7 small:max-w-[120px]"
               />
             ) : (
               <span

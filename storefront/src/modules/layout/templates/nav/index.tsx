@@ -8,7 +8,7 @@ import CartButton from "@modules/layout/components/cart-button"
 import SideMenu from "@modules/layout/components/side-menu"
 import CategoryNav from "@modules/layout/components/category-nav"
 import SearchBox from "@modules/layout/components/search-box"
-import { Phone, User, ShoppingBag } from "lucide-react"
+import { Phone, User, ShoppingBag, Wrench } from "lucide-react"
 
 export default async function Nav() {
   const regions = await listRegions().then((regions: StoreRegion[]) => regions)
@@ -32,14 +32,9 @@ export default async function Nav() {
     <div className="sticky top-0 inset-x-0 z-50">
       {/* Utility topbar — dark "pro" register with contacts */}
       <div className="bg-svc-ground text-[#aeb6c0]">
-        <div className="content-container flex items-center justify-between gap-x-4 h-9 text-xs font-medium">
-          <div className="hidden small:flex items-center gap-x-2">
-            <span className="ind" />
-            <span>
-              Especialistas em higiene profissional desde 1999
-            </span>
-          </div>
-          <div className="flex items-center gap-x-4 small:gap-x-5 ml-auto">
+        <div className="content-container flex items-center justify-between gap-x-3 h-9 text-xs font-medium">
+          {/* Left — contacts */}
+          <div className="flex min-w-0 items-center gap-x-4 small:gap-x-5">
             <a
               href="tel:+351278262913"
               className="flex items-center gap-x-2 hover:text-white transition-colors"
@@ -55,14 +50,20 @@ export default async function Nav() {
             >
               higitotal@higitotal.pt
             </a>
-            <LocalizedClientLink
-              href="/assistencia-tecnica"
-              className="inline-flex items-center rounded-pill bg-svc-signal px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-white transition-colors hover:bg-svc-signal-ink"
-              data-testid="util-assistencia-link"
-            >
-              Assistência Técnica
-            </LocalizedClientLink>
+            <span className="hidden small:flex items-center gap-x-2">
+              <span className="ind" />
+              Especialistas em higiene profissional desde 1999
+            </span>
           </div>
+          {/* Right — assistência chip */}
+          <LocalizedClientLink
+            href="/assistencia-tecnica"
+            className="inline-flex shrink-0 items-center gap-x-1.5 rounded-pill bg-svc-signal px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-white transition-colors hover:bg-svc-signal-ink"
+            data-testid="util-assistencia-link"
+          >
+            <Wrench className="h-3 w-3" />
+            Assistência Técnica
+          </LocalizedClientLink>
         </div>
       </div>
 

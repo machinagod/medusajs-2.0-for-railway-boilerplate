@@ -1,7 +1,7 @@
 import { Phone, ArrowRight, ArrowLeft } from "lucide-react"
 
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
-import { IberiaMap } from "@modules/assistencia/components/coverage"
+import { IberiaMap } from "@modules/assistencia/components/iberia-map"
 
 /**
  * Assistência Técnica hero — dark "pro" register. Headline about keeping
