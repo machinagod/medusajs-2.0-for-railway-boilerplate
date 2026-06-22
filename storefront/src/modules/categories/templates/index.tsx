@@ -6,6 +6,7 @@ import RefinementList from "@modules/store/components/refinement-list"
 import { SortOptions } from "@modules/store/components/refinement-list/sort-products"
 import PaginatedProducts from "@modules/store/templates/paginated-products"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
+import SubcategoryChips from "@modules/categories/components/subcategory-chips"
 import { HttpTypes } from "@medusajs/types"
 import { collectCategoryIds } from "@lib/data/categories"
 
@@ -60,19 +61,7 @@ export default function CategoryTemplate({
         </p>
       )}
 
-      {category.category_children && category.category_children.length > 0 && (
-        <div className="mb-6 flex flex-wrap gap-2">
-          {category.category_children.map((c) => (
-            <LocalizedClientLink
-              key={c.id}
-              href={`/categories/${c.handle}`}
-              className="rounded-pill border border-hairline bg-white px-3.5 py-1.5 text-sm font-medium text-brand-ink transition-colors hover:border-brand-cyan hover:text-brand-cyan"
-            >
-              {c.name}
-            </LocalizedClientLink>
-          ))}
-        </div>
-      )}
+      <SubcategoryChips categories={category.category_children} />
 
       <Suspense fallback={<SkeletonProductGrid />}>
         <PaginatedProducts
