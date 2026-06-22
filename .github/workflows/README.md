@@ -48,11 +48,20 @@ to master** (not on PRs). **PRs run only `image-smoke`** (build + boot).
 
 ## Images
 
-- `ghcr.io/machinagod/medusajs-2.0-for-railway-boilerplate/backend`
-- `ghcr.io/machinagod/medusajs-2.0-for-railway-boilerplate/storefront`
+- `ghcr.io/machinagod/higitotal-store/backend`
+- `ghcr.io/machinagod/higitotal-store/storefront`
 
 Both are **private** packages. Tags: `latest` (moving, what Railway deploys) and
 `sha-<short-commit>` (immutable, for traceability / rollback).
+
+> **Repo rename gotcha:** the GitHub repo was renamed from
+> `medusajs-2.0-for-railway-boilerplate` to `higitotal-store`. CI tags with
+> `ghcr.io/${{ github.repository }}/…`, so it now pushes to the `higitotal-store`
+> path automatically. **Railway's image source on each service must point at the
+> same path** — after the rename, `:latest` on the OLD path stops moving, so a
+> service still pointed there silently keeps serving the last pre-rename build
+> (this happened: prod was stuck until the Storefront/Backend sources were
+> repointed to `…/higitotal-store/…:latest`).
 
 The `NEXT_PUBLIC_*` storefront config is **baked into the image at build time**
 (Next.js inlines it), so the storefront image is environment-specific — it

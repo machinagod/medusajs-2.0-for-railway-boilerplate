@@ -88,7 +88,10 @@ Fix failures before committing — including pre-existing ones in files you touc
 ## Deploy & CI
 - **Build & deploy**: GitHub Actions (`.github/workflows/ci.yml`) builds Docker
   images from `backend/Dockerfile` and `storefront/Dockerfile` and pushes them to
-  **GHCR** (private: `ghcr.io/machinagod/medusajs-2.0-for-railway-boilerplate/{backend,storefront}`,
+  **GHCR** (private: `ghcr.io/machinagod/higitotal-store/{backend,storefront}` — the
+  repo was renamed from `medusajs-2.0-for-railway-boilerplate`; CI uses
+  `${{ github.repository }}` so it follows the rename, and Railway's image source
+  must point at the **same** path,
   tags `:latest` + `:sha-<commit>`). CI does **not** trigger the deploy — each
   Railway service has **GHCR image auto-updates** enabled, so Railway polls the
   image tag and redeploys itself when a new `:latest` is published. Railway no
