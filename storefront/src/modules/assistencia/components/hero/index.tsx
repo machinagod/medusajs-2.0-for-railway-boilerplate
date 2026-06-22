@@ -1,6 +1,7 @@
 import { Phone, ArrowRight, ArrowLeft } from "lucide-react"
 
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
+import { IberiaMap } from "@modules/assistencia/components/coverage"
 
 /**
  * Assistência Técnica hero — dark "pro" register. Headline about keeping
@@ -86,31 +87,31 @@ const Hero = () => {
           </div>
         </div>
 
-        {/* Coverage motif — pure CSS, centred on Mirandela */}
-        <div className="relative min-h-[360px] overflow-hidden rounded-[28px] border border-svc-line bg-svc-ground-2 sm:min-h-[420px]">
-          <span className="absolute left-7 top-7 rounded-[14px] border border-svc-line bg-[#0f1115]/70 px-4 py-3 text-xs font-bold leading-snug text-white backdrop-blur">
+        {/* Coverage panel — the real Iberia map layered over the stylized rings */}
+        <div className="relative flex min-h-[360px] items-center justify-center overflow-hidden rounded-[28px] border border-svc-line bg-svc-ground-2 p-6 sm:min-h-[420px] sm:p-9">
+          {/* stylized concentric rings (decorative backdrop) */}
+          <span
+            aria-hidden
+            className="pointer-events-none absolute left-1/2 top-1/2 h-[520px] w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-svc-line opacity-25"
+          />
+          <span
+            aria-hidden
+            className="pointer-events-none absolute left-1/2 top-1/2 h-[360px] w-[360px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-svc-line opacity-40"
+          />
+          <span
+            aria-hidden
+            className="pointer-events-none absolute left-1/2 top-1/2 h-[210px] w-[210px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-svc-line opacity-50"
+          />
+          {/* label */}
+          <span className="absolute left-6 top-6 z-[2] rounded-[14px] border border-svc-line bg-[#0f1115]/70 px-4 py-3 text-xs font-bold leading-snug text-white backdrop-blur">
             Cobertura
             <span className="mt-1 block font-medium text-svc-fg-muted">
               Sede em Mirandela
             </span>
           </span>
-          {/* rings */}
-          <span className="absolute left-[46%] top-[44%] h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-svc-line opacity-40" />
-          <span className="absolute left-[46%] top-[44%] h-[280px] w-[280px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-svc-line opacity-70" />
-          <span className="absolute left-[46%] top-[44%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-svc-line" />
-          {/* nearby pins (cyan family link) */}
-          <span className="absolute left-[32%] top-[26%] h-[9px] w-[9px] rounded-full bg-brand-cyan shadow-[0_0_0_4px_rgba(0,173,239,0.18)]" />
-          <span className="absolute left-[62%] top-[32%] h-[9px] w-[9px] rounded-full bg-brand-cyan shadow-[0_0_0_4px_rgba(0,173,239,0.18)]" />
-          <span className="absolute left-[58%] top-[62%] h-[9px] w-[9px] rounded-full bg-brand-cyan shadow-[0_0_0_4px_rgba(0,173,239,0.18)]" />
-          <span className="absolute left-[30%] top-[64%] h-[9px] w-[9px] rounded-full bg-brand-cyan shadow-[0_0_0_4px_rgba(0,173,239,0.18)]" />
-          <span className="absolute left-[48%] top-[20%] h-[9px] w-[9px] rounded-full bg-brand-cyan shadow-[0_0_0_4px_rgba(0,173,239,0.18)]" />
-          {/* HQ */}
-          <span className="absolute left-[46%] top-[44%] h-[18px] w-[18px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-svc-signal shadow-[0_0_0_7px_rgba(255,122,26,0.2)]" />
-          <div className="absolute left-[46%] top-[44%] translate-x-[18px] translate-y-[-42px] text-xs font-bold uppercase leading-none tracking-[0.08em] text-white">
-            Mirandela
-            <small className="mt-1.5 block text-[11px] font-medium normal-case tracking-[0.04em] text-svc-fg-muted">
-              Sede &amp; equipa técnica
-            </small>
+          {/* real map */}
+          <div className="relative z-[1] w-full max-w-[400px]">
+            <IberiaMap />
           </div>
         </div>
       </div>

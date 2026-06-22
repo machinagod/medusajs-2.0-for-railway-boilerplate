@@ -28,7 +28,10 @@ export default function AssistenciaTecnicaPage({}: Params) {
       <Coverage />
       <Equipment />
 
-      <section id="pedir" className="content-container pb-20 sm:pb-[74px]">
+      <section
+        id="pedir"
+        className="content-container scroll-mt-32 pb-20 sm:scroll-mt-40 sm:pb-[74px]"
+      >
         <RequestForm />
       </section>
     </div>

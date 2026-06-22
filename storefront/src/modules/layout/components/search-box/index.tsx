@@ -32,7 +32,7 @@ const SearchBox = () => {
         type="search"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="Pesquisar produtos, marcas ou referências…"
+        placeholder="Pesquisar produtos ou marcas…"
         aria-label="Pesquisar"
         className="flex-1 min-w-0 bg-transparent text-sm font-medium text-brand-ink placeholder:text-[#98a0a8] outline-none [&::-webkit-search-cancel-button]:appearance-none"
       />

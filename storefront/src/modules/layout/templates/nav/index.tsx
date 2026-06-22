@@ -57,11 +57,10 @@ export default async function Nav() {
             </a>
             <LocalizedClientLink
               href="/assistencia-tecnica"
-              className="flex items-center gap-x-2 hover:text-white transition-colors"
+              className="inline-flex items-center rounded-pill bg-svc-signal px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-white transition-colors hover:bg-svc-signal-ink"
               data-testid="util-assistencia-link"
             >
-              <span className="ind amber" />
-              <span>Assistência Técnica</span>
+              Assistência Técnica
             </LocalizedClientLink>
           </div>
         </div>
@@ -77,7 +76,7 @@ export default async function Nav() {
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/higitotal/logo-full.png"
+              src="/higitotal/logo-full-transparent.png"
               alt="Higitotal"
               className="h-8 small:h-[46px] w-auto"
             />

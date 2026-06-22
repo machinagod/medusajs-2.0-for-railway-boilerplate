@@ -1,15 +1,4 @@
-type Brand = { name: string; logo?: string }
-
-// Brands we represent. SVG logos live in /public/brands; brands without a clean
-// public SVG fall back to a styled wordmark (Sammic, Vileda Origo, CELEA).
-const BRANDS: Brand[] = [
-  { name: "Fagor", logo: "/brands/fagor.svg" },
-  { name: "Vileda", logo: "/brands/vileda.svg" },
-  { name: "Sammic" },
-  { name: "Nilfisk", logo: "/brands/nilfisk.svg" },
-  { name: "Vileda Origo" },
-  { name: "CELEA" },
-]
+import { BRANDS } from "@lib/brands"
 
 const Suppliers = () => {
   return (

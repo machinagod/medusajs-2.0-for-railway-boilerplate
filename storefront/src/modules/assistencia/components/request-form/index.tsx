@@ -126,7 +126,7 @@ const RequestForm = () => {
           <form className="grid grid-cols-1 gap-4 sm:grid-cols-2" onSubmit={submit}>
             <div>
               <label className={labelCls} htmlFor="rf-name">
-                Nome
+                Nome <span className="text-svc-signal">*</span>
               </label>
               <input
                 id="rf-name"
@@ -149,7 +149,7 @@ const RequestForm = () => {
             </div>
             <div className="sm:col-span-2">
               <label className={labelCls} htmlFor="rf-email">
-                Email
+                Email <span className="text-svc-signal">*</span>
               </label>
               <input
                 id="rf-email"
