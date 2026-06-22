@@ -97,22 +97,27 @@ const MobileActions: React.FC<MobileActionsProps> = ({
                 <div></div>
               )}
             </div>
-            <div className="grid grid-cols-2 w-full gap-x-3">
-              <Button
-                onClick={open}
-                variant="secondary"
-                className="w-full min-w-0"
-                data-testid="mobile-actions-button"
-              >
-                <div className="flex items-center justify-between w-full">
-                  <span className="truncate">
-                    {variant
-                      ? Object.values(options).join(" / ")
-                      : "Opções"}
-                  </span>
-                  <ChevronDown />
-                </div>
-              </Button>
+            <div
+              className={clx("w-full gap-x-3", {
+                "grid grid-cols-2": (product.variants?.length ?? 0) > 1,
+                flex: (product.variants?.length ?? 0) <= 1,
+              })}
+            >
+              {(product.variants?.length ?? 0) > 1 && (
+                <Button
+                  onClick={open}
+                  variant="secondary"
+                  className="w-full min-w-0"
+                  data-testid="mobile-actions-button"
+                >
+                  <div className="flex items-center justify-between w-full">
+                    <span className="truncate">
+                      {variant ? Object.values(options).join(" / ") : "Opções"}
+                    </span>
+                    <ChevronDown />
+                  </div>
+                </Button>
+              )}
               <Button
                 onClick={handleAddToCart}
                 disabled={!inStock || !variant}
@@ -125,7 +130,7 @@ const MobileActions: React.FC<MobileActionsProps> = ({
                     ? "Selecionar variante"
                     : !inStock
                     ? "Esgotado"
-                    : "Adicionar"}
+                    : "Adicionar ao carrinho"}
                 </span>
               </Button>
             </div>

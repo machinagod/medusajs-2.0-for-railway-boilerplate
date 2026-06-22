@@ -95,13 +95,13 @@ const Hero = async ({ image }: { image?: string | null }) => {
               Em destaque
             </span>
             <h3 className="mt-2.5 max-w-[13ch] text-xl font-bold leading-tight tracking-tight text-brand-ink small:text-2xl">
-              Detergentes ultraconcentrados
+              Fornos profissionais
             </h3>
             <p className="mt-2 max-w-[28ch] text-[13px] font-medium leading-snug text-[#5a636c]">
-              Menos embalagem, mais rendimento. Gama profissional.
+              Fornos combinados Fagor para cozinha profissional.
             </p>
             <LocalizedClientLink
-              href={href("Detergentes")}
+              href="/collections/fornos-profissionais"
               className="mt-4 inline-flex items-center gap-2.5 text-xs font-bold uppercase tracking-[0.04em] text-brand-ink"
             >
               Comprar

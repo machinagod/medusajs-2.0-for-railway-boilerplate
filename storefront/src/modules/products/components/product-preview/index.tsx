@@ -2,9 +2,9 @@ import { getProductPrice } from "@lib/util/get-product-price"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import Thumbnail from "../thumbnail"
 import PreviewPrice from "./price"
+import ProductCardAddButton from "./add-button"
 import { getProductsById } from "@lib/data/products"
 import { HttpTypes } from "@medusajs/types"
-import { Plus } from "lucide-react"
 
 export default async function ProductPreview({
   product,
@@ -32,14 +32,18 @@ export default async function ProductPreview({
   const eyebrow =
     product.collection?.title ?? product.categories?.[0]?.name ?? null
 
+  // Single (default) variant — add it straight to the cart from the card.
+  const variantId = (pricedProduct.variants ?? [])[0]?.id
+  const countryCode = region.countries?.[0]?.iso_2 ?? "pt"
+
   return (
-    <LocalizedClientLink
-      href={`/products/${product.handle}`}
-      className="group block h-full"
+    <div
+      data-testid="product-wrapper"
+      className="group relative flex h-full flex-col rounded-card border border-hairline bg-white p-4 transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_18px_40px_rgba(16,24,40,0.10)]"
     >
-      <div
-        data-testid="product-wrapper"
-        className="flex h-full flex-col rounded-card border border-hairline bg-white p-4 transition-all duration-200 group-hover:-translate-y-1 group-hover:shadow-[0_18px_40px_rgba(16,24,40,0.10)]"
+      <LocalizedClientLink
+        href={`/products/${product.handle}`}
+        className="flex flex-col"
       >
         {/* Image on white */}
         <div className="relative mb-3.5 overflow-hidden rounded-btn bg-[#f5f7f9]">
@@ -66,22 +70,16 @@ export default async function ProductPreview({
         >
           {product.title}
         </h3>
+      </LocalizedClientLink>
 
-        {/* Price */}
-        <div className="mt-3">
+      {/* Footer: price + compact add-to-cart. mt-auto keeps it aligned across
+          cards regardless of title length. */}
+      <div className="mt-auto flex items-center justify-between gap-2 pt-3">
+        <div className="min-w-0">
           {cheapestPrice && <PreviewPrice price={cheapestPrice} />}
         </div>
-
-        {/* Footer action chip (visual only — leads to the PDP, where the dual
-            CTA incl. the salesperson-contact widget lives). mt-auto pins it to
-            the bottom so the button aligns across cards regardless of title
-            length (the card is h-full flex-col). */}
-        <div className="mt-auto pt-4">
-          <span className="flex w-full items-center justify-center gap-x-1.5 rounded-btn bg-brand-ink px-3 py-2.5 text-xs font-bold uppercase tracking-[0.04em] text-white transition-colors group-hover:bg-brand-cyan">
-            <Plus className="h-3.5 w-3.5" /> Carrinho
-          </span>
-        </div>
+        <ProductCardAddButton variantId={variantId} countryCode={countryCode} />
       </div>
-    </LocalizedClientLink>
+    </div>
   )
 }

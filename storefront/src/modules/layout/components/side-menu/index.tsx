@@ -8,6 +8,7 @@ import { Fragment } from "react"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import CountrySelect from "../country-select"
 import { HttpTypes } from "@medusajs/types"
+import { Wrench } from "lucide-react"
 
 type Category = { label: string; href: string }
 
@@ -108,14 +109,14 @@ const SideMenu = ({
                           </LocalizedClientLink>
                         </li>
                       ))}
-                      <li className="mt-2">
+                      <li className="mt-2 w-full">
                         <LocalizedClientLink
                           href="/assistencia-tecnica"
-                          className="inline-flex items-center gap-x-2.5 bg-svc-signal text-white px-4 py-2.5 rounded-pill text-xs font-bold uppercase tracking-wide hover:bg-svc-signal-ink transition-colors"
+                          className="flex w-full items-center justify-center gap-x-2 bg-svc-signal text-white px-4 py-3 rounded-pill text-xs font-bold uppercase tracking-wide hover:bg-svc-signal-ink transition-colors"
                           onClick={close}
                           data-testid="assistencia-tecnica-link"
                         >
-                          <span className="ind amber" />
+                          <Wrench className="h-4 w-4" />
                           Assistência Técnica
                         </LocalizedClientLink>
                       </li>
