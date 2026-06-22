@@ -3,7 +3,7 @@ import React, { Suspense } from "react"
 import ImageGallery from "@modules/products/components/image-gallery"
 import ProductActions from "@modules/products/components/product-actions"
 import ProductTabs from "@modules/products/components/product-tabs"
-import RelatedProducts from "@modules/products/components/related-products"
+import BoughtTogether from "@modules/products/components/bought-together"
 import ProductInfo from "@modules/products/templates/product-info"
 import ProductHighlights from "@modules/products/components/product-highlights"
 import ProductSpecSheet from "@modules/products/components/product-spec-sheet"
@@ -73,7 +73,7 @@ const ProductTemplate: React.FC<ProductTemplateProps> = ({
         data-testid="related-products-container"
       >
         <Suspense fallback={<SkeletonRelatedProducts />}>
-          <RelatedProducts product={product} countryCode={countryCode} />
+          <BoughtTogether product={product} countryCode={countryCode} />
         </Suspense>
       </div>
     </>

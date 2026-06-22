@@ -64,6 +64,28 @@ export const getProductAttributes = cache(async function (productId: string) {
     .catch(() => ({ highlights: [], specs: [] }))
 })
 
+export type BoughtTogetherPair = {
+  id: string
+  productId1: string
+  productId2: string
+  frequency: number
+}
+
+/**
+ * Frequently-bought-together pairs from the
+ * `@rsc-labs/medusa-products-bought-together-v2` plugin (store route
+ * GET /store/products-bought-together/:id). Returns a raw array of pairs ordered by
+ * co-purchase frequency. `sdk.client.fetch` adds the publishable key + backend URL.
+ * Fails soft to [] so the PDP can fall back to collection-based suggestions.
+ */
+export const getBoughtTogether = cache(async function (productId: string) {
+  return sdk.client
+    .fetch<BoughtTogetherPair[]>(`/store/products-bought-together/${productId}`, {
+      next: { tags: ["products"] },
+    })
+    .catch(() => [] as BoughtTogetherPair[])
+})
+
 export const getProductsList = cache(async function ({
   pageParam = 1,
   queryParams,

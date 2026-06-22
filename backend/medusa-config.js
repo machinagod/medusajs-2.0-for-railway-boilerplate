@@ -164,6 +164,14 @@ const medusaConfig = {
     }] : [])
   ],
   plugins: [
+    {
+      // Frequently-bought-together. Subscribes to placed orders and serves
+      // GET /store/products-bought-together/:product_id. Historical co-purchase
+      // baskets (Moloni FT/FR/SM) are seeded once via
+      // src/scripts/backfill-bought-together.ts; it self-maintains from live orders.
+      resolve: '@rsc-labs/medusa-products-bought-together-v2',
+      options: {}
+    },
   ...(MEILISEARCH_HOST && MEILISEARCH_ADMIN_KEY ? [{
       resolve: '@rokmohar/medusa-plugin-meilisearch',
       options: {

@@ -11,6 +11,10 @@ coverage
 
 .medusa
 
+# One-time bootstrap artifacts (e.g. the Moloni bought-together seed CSV,
+# regenerable via the Higitotal mirror — see src/scripts/backfill-bought-together.ts)
+.bootstrap/
+
 !src/**
 
 ./tsconfig.tsbuildinfo
