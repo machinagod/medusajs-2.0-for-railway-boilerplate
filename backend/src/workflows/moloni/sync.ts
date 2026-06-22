@@ -324,7 +324,7 @@ export async function runMoloniSync(
           return {
             id: ref.productId,
             title: p.name,
-            description: p.summary || undefined,
+            // description & subtitle are Medusa-owned (SoT); the sync never touches them.
             category_ids: categoryMap.get(p.category_id)
               ? [categoryMap.get(p.category_id)!]
               : undefined,

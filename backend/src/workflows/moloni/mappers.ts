@@ -106,7 +106,7 @@ export function toCreateProductInput(args: {
     title: product.name,
     handle: productHandle(product),
     status,
-    description: product.summary || undefined,
+    // description & subtitle are Medusa-owned (SoT); the sync never touches them.
     shipping_profile_id: shippingProfileId,
     external_id: String(product.product_id),
     category_ids: categoryId ? [categoryId] : [],
