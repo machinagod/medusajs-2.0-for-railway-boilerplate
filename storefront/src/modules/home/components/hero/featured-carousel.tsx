@@ -18,9 +18,9 @@ const SLIDES: Slide[] = [
     href: "/collections/maquinas-de-limpeza",
   },
   {
-    title: "Diversey & SC Johnson",
-    blurb: "Cif, Taski, Suma e outras marcas profissionais.",
-    href: "/collections/diversey-sc-johnson",
+    title: "Unilever",
+    blurb: "Cif, Sun, Comfort e outras marcas profissionais Unilever.",
+    href: "/collections/unilever",
   },
 ]
 
