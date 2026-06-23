@@ -9,6 +9,10 @@ import { GET as pwGET, POST as pwPOST } from "../product-watches/route"
 import { POST as scrapePOST } from "../competitor-prices/scrape/route"
 import { POST as matchPOST } from "../competitor-prices/match/route"
 import { POST as discoverPOST } from "../competitor-prices/discover/route"
+import { GET as dqBatchGET } from "../competitor-prices/discovery/next-batch/route"
+import { POST as dqSubmitPOST } from "../competitor-prices/discovery/submit/route"
+import { POST as dqSkipPOST } from "../competitor-prices/discovery/skip/route"
+import { GET as dqStatsGET } from "../competitor-prices/discovery/stats/route"
 import { runCompetitorScrape } from "../../../workflows/competitor-prices/scrape"
 import { runCatalogDiscovery } from "../../../workflows/competitor-prices/discovery-catalog"
 import { runProductDiscovery } from "../../../workflows/competitor-prices/discovery-product"
@@ -146,5 +150,96 @@ describe("admin routes", () => {
     await cpGET({ scope: { resolve: () => svc }, body: {}, query: {} } as any, res)
     expect(svc.listCompetitorProducts).toHaveBeenCalledWith({}, expect.anything())
     expect(res.json.mock.calls[0][0].competitor_products[0].latest_price.price).toBe(2)
+  })
+})
+
+describe("discovery queue routes", () => {
+  it("GET /discovery/next-batch returns due watches + competitors", async () => {
+    const svc = {
+      listDueProductWatches: jest.fn().mockResolvedValue([
+        { id: "w1", product_id: "p1", product_sku: "S1", title: "T1", brand: "B", ean: null },
+      ]),
+      listCompetitors: jest.fn().mockResolvedValue([
+        { handle: "h", name: "N", base_url: "u", country: "PT", scraper_key: "generic-jsonld" },
+      ]),
+    }
+    const res = makeRes()
+    await dqBatchGET(makeReq(svc, {}, { limit: "5" }) as any, res)
+    expect(svc.listDueProductWatches).toHaveBeenCalledWith(5, false)
+    const out = res.json.mock.calls[0][0]
+    expect(out.count).toBe(1)
+    expect(out.watches[0]).toMatchObject({ watch_id: "w1", sku: "S1" })
+    expect(out.competitors[0].handle).toBe("h")
+  })
+
+  it("POST /discovery/submit ingests listings and marks the watch discovered", async () => {
+    const svc = {
+      listProductWatches: jest.fn().mockResolvedValue([{ id: "w1", product_id: "p1" }]),
+      ensureCompetitor: jest.fn().mockResolvedValue({ id: "c1" }),
+      upsertDiscoveredMapping: jest.fn().mockResolvedValue({ id: "m1" }),
+      markProductDiscovered: jest.fn().mockResolvedValue(undefined),
+    }
+    const res = makeRes()
+    await dqSubmitPOST(
+      makeReq(svc, {
+        watch_id: "w1",
+        listings: [
+          { competitor_handle: "h", url: "http://x/p", confidence: 88 },
+          { url: "http://no-handle" }, // skipped (no handle)
+        ],
+      }) as any,
+      res
+    )
+    expect(svc.ensureCompetitor).toHaveBeenCalledTimes(1)
+    expect(svc.upsertDiscoveredMapping).toHaveBeenCalledWith("c1", expect.objectContaining({ url: "http://x/p", confidence: 88 }), "p1")
+    expect(svc.markProductDiscovered).toHaveBeenCalled()
+    expect(res.json.mock.calls[0][0]).toMatchObject({ created: 1, skipped: 1 })
+  })
+
+  it("POST /discovery/submit 404s when the watch is unknown", async () => {
+    const svc = { listProductWatches: jest.fn().mockResolvedValue([]) }
+    const res = makeRes()
+    await dqSubmitPOST(makeReq(svc, { product_id: "nope", listings: [] }) as any, res)
+    expect(res.status).toHaveBeenCalledWith(404)
+  })
+
+  it("POST /discovery/skip marks the watch discovered", async () => {
+    const svc = {
+      listProductWatches: jest.fn().mockResolvedValue([{ id: "w1" }]),
+      markProductDiscovered: jest.fn().mockResolvedValue(undefined),
+    }
+    const res = makeRes()
+    await dqSkipPOST(makeReq(svc, { watch_id: "w1" }) as any, res)
+    expect(svc.markProductDiscovered).toHaveBeenCalled()
+    expect(res.json.mock.calls[0][0]).toMatchObject({ skipped: true })
+  })
+
+  it("POST /discovery/skip 404s when unknown", async () => {
+    const svc = { listProductWatches: jest.fn().mockResolvedValue([]) }
+    const res = makeRes()
+    await dqSkipPOST(makeReq(svc, {}) as any, res)
+    expect(res.status).toHaveBeenCalledWith(404)
+  })
+
+  it("GET /discovery/stats aggregates counts", async () => {
+    const svc = {
+      listAndCountProductWatches: jest
+        .fn()
+        .mockResolvedValueOnce([[], 100]) // total
+        .mockResolvedValueOnce([[], 12]), // due
+      listAndCountCompetitorProducts: jest
+        .fn()
+        .mockResolvedValueOnce([[], 40]) // total mappings
+        .mockResolvedValueOnce([[], 15]), // unmatched
+    }
+    const res = makeRes()
+    await dqStatsGET(makeReq(svc) as any, res)
+    expect(res.json.mock.calls[0][0]).toMatchObject({
+      total_watches: 100,
+      due_watches: 12,
+      total_mappings: 40,
+      unmatched_mappings: 15,
+      matched_mappings: 25,
+    })
   })
 })
