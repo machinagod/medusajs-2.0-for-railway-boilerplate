@@ -2,10 +2,11 @@
 
 import { useParams, useRouter } from "next/navigation"
 import { useEffect, useMemo, useRef, useState } from "react"
-import { Search, Loader2 } from "lucide-react"
+import { Search, Loader2, FileText } from "lucide-react"
 
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { search } from "@modules/search/actions"
+import { SITE_PAGES, type SitePage } from "@lib/site-pages"
 
 export type SearchCategory = {
   name: string
@@ -13,6 +14,13 @@ export type SearchCategory = {
   type: "category" | "subcategory"
   parent?: string
 }
+
+// Strip accents so "assistencia" matches "Assistência", etc.
+const normalize = (s: string) =>
+  s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
 
 type ProductHit = {
   id: string
@@ -29,8 +37,10 @@ type ProductHit = {
  */
 const SearchBox = ({
   categories = [],
+  pages = SITE_PAGES,
 }: {
   categories?: SearchCategory[]
+  pages?: SitePage[]
 }) => {
   const router = useRouter()
   const { countryCode } = useParams() as { countryCode?: string }
@@ -45,12 +55,26 @@ const SearchBox = ({
   const q = query.trim()
 
   const catMatches = useMemo(() => {
-    const needle = q.toLowerCase()
+    const needle = normalize(q)
     if (needle.length < 2) return []
     return categories
-      .filter((c) => c.name.toLowerCase().includes(needle))
+      .filter((c) => normalize(c.name).includes(needle))
       .slice(0, 5)
   }, [q, categories])
+
+  // Static site pages (Assistência Técnica, Contactos, …) matched by title or
+  // keyword — accent-insensitive so "assistencia"/"reparacao" both hit.
+  const pageMatches = useMemo(() => {
+    const needle = normalize(q)
+    if (needle.length < 2) return []
+    return pages
+      .filter(
+        (p) =>
+          normalize(p.name).includes(needle) ||
+          (p.keywords || []).some((k) => normalize(k).includes(needle))
+      )
+      .slice(0, 4)
+  }, [q, pages])
 
   // Debounced product search (MeiliSearch via the existing server action).
   useEffect(() => {
@@ -105,7 +129,8 @@ const SearchBox = ({
   }
 
   const showDropdown = open && q.length >= 2
-  const hasResults = catMatches.length > 0 || products.length > 0
+  const hasResults =
+    catMatches.length > 0 || pageMatches.length > 0 || products.length > 0
   const itemCls =
     "flex w-full items-center gap-3 rounded-btn px-2 py-2 text-left transition-colors hover:bg-[#f1f4f7]"
   const headingCls =
@@ -163,6 +188,32 @@ const SearchBox = ({
                       {c.type === "subcategory"
                         ? `Subcategoria${c.parent ? ` · ${c.parent}` : ""}`
                         : "Categoria"}
+                    </span>
+                  </span>
+                </LocalizedClientLink>
+              ))}
+            </div>
+          )}
+
+          {pageMatches.length > 0 && (
+            <div className="border-t border-hairline p-2 first:border-t-0">
+              <div className={headingCls}>Páginas</div>
+              {pageMatches.map((p) => (
+                <LocalizedClientLink
+                  key={p.href}
+                  href={p.href}
+                  onClick={close}
+                  className={itemCls}
+                >
+                  <span className="flex h-9 w-9 flex-none items-center justify-center rounded-btn bg-[#eaf7fe] text-brand-cyan">
+                    <FileText className="h-4 w-4" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-medium text-brand-ink">
+                      {p.name}
+                    </span>
+                    <span className="block truncate text-xs text-grey-50">
+                      {p.description}
                     </span>
                   </span>
                 </LocalizedClientLink>
