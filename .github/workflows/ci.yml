@@ -52,6 +52,75 @@ jobs:
               - 'storefront/**'
               - '.github/workflows/ci.yml'
 
+  # ── Patch coverage gate (PRs only) ─────────────────────────────────────────
+  # Enforces >=90% line coverage on the lines CHANGED in the PR, across backend
+  # (Jest) and storefront (Vitest), via diff-cover. New/edited logic must be
+  # tested; untested legacy code is not penalised. The backend run additionally
+  # holds the competitor-prices module to 90% line+branch (jest threshold).
+  # lcov paths are prefixed to repo-root form so they match the git diff.
+  coverage:
+    name: Patch coverage (changed lines >= 90%)
+    needs: [changes]
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.10.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: pnpm
+          cache-dependency-path: |
+            backend/pnpm-lock.yaml
+            storefront/pnpm-lock.yaml
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install diff-cover
+        run: pip install "diff-cover>=9"
+
+      - name: Backend coverage (Jest)
+        if: needs.changes.outputs.backend == 'true'
+        working-directory: backend
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm test:coverage
+          sed -i 's#^SF:#SF:backend/#' coverage/lcov.info
+
+      - name: Storefront coverage (Vitest)
+        if: needs.changes.outputs.storefront == 'true'
+        working-directory: storefront
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm test:coverage
+          sed -i 's#^SF:#SF:storefront/#' coverage/lcov.info
+
+      - name: Enforce patch coverage (>= 90% of changed lines)
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -e
+          reports=""
+          [ -f backend/coverage/lcov.info ] && reports="$reports backend/coverage/lcov.info"
+          [ -f storefront/coverage/lcov.info ] && reports="$reports storefront/coverage/lcov.info"
+          if [ -z "$reports" ]; then
+            echo "No coverage reports — no covered app changed."; exit 0
+          fi
+          diff-cover $reports \
+            --compare-branch "origin/${BASE_REF}" \
+            --fail-under 90 \
+            --markdown-report diff-cover.md
+          cat diff-cover.md >> "$GITHUB_STEP_SUMMARY" || true
+
   # ── Backend image: build once → boot-smoke → push ──────────────────────────
   # Builds the ACTUAL production image a single time (load: true), boots it to
   # assert it serves /health (booting the pruned image catches runtime deps

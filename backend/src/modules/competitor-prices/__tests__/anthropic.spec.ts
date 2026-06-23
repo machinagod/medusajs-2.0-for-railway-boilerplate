@@ -89,6 +89,21 @@ describe("createAnthropicDiscoveryAgent", () => {
     ).toEqual([])
   })
 
+  it("uses default model/maxResults and normalizes a fully-populated listing", async () => {
+    ;(global as any).fetch = mockFetch(
+      '[{"competitorHandle":"Acme Co","competitorName":"Acme","competitorBaseUrl":"http://acme","url":"http://acme/p","price":"2,50","currencyCode":"GBP","characteristics":{"size":"5L"},"confidence":90}]'
+    )
+    const a = createAnthropicDiscoveryAgent({ apiKey: "k" }) // no model/maxResults
+    const out = await a.findStoresForProduct({ productId: "p", title: "T" })
+    expect(out[0]).toMatchObject({
+      competitorHandle: "acme-co",
+      competitorName: "Acme",
+      currencyCode: "GBP",
+      characteristics: { size: "5L" },
+    })
+    expect(bodyOf(0).model).toBe("claude-sonnet-4-6")
+  })
+
   it("throws on a non-OK API response", async () => {
     ;(global as any).fetch = mockFetch("", false, 500)
     await expect(

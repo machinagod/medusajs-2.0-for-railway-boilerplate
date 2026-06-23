@@ -1,12 +1,14 @@
 /**
- * Unit-test config (no DB / no network). Logic is tested in isolation with
- * mocks per the project's testing standards. Coverage is enforced at 90% line +
- * branch over the competitor-prices module and its workflows/jobs/routes.
+ * Unit-test config (no DB / no network). Coverage is collected across the whole
+ * backend `src` so the project-wide **patch coverage** gate (diff-cover in CI)
+ * can measure any changed file. A per-path threshold additionally keeps the
+ * competitor-prices module strictly at 90% line + branch.
  *
- * Excluded from coverage (not arbitrary — these carry no unit-testable logic):
- *   - migrations/** : DDL strings, executed by Medusa's migration runner
- *   - index.ts      : barrel re-exports
- *   - admin/**.tsx  : React dashboard view (belongs to e2e, not unit)
+ * Excluded from coverage (not unit-testable logic / covered elsewhere):
+ *   - migrations  : DDL strings, run by Medusa's migration runner
+ *   - src/scripts : one-off operational scripts
+ *   - src/admin   : React dashboard views (e2e, not unit)
+ *   - test files, .d.ts, and the module index barrel
  */
 module.exports = {
   testEnvironment: "node",
@@ -27,22 +29,19 @@ module.exports = {
   modulePathIgnorePatterns: ["<rootDir>/.medusa/"],
   clearMocks: true,
   collectCoverageFrom: [
-    "src/modules/competitor-prices/**/*.ts",
-    "src/workflows/competitor-prices/**/*.ts",
-    "src/jobs/scrape-competitor-prices.ts",
-    "src/jobs/discover-competitor-catalog.ts",
-    "src/jobs/discover-product-competitors.ts",
-    "src/api/admin/competitors/**/*.ts",
-    "src/api/admin/competitor-products/**/*.ts",
-    "src/api/admin/competitor-prices/**/*.ts",
-    "src/api/admin/product-watches/**/*.ts",
+    "src/**/*.{ts,tsx}",
+    "!src/**/__tests__/**",
+    "!src/**/*.d.ts",
+    "!src/scripts/**",
+    "!src/admin/**",
     "!**/migrations/**",
-    "!**/__tests__/**",
     "!src/modules/competitor-prices/index.ts",
-    "!**/*.d.ts",
   ],
+  coverageReporters: ["text-summary", "lcov"],
   coverageThreshold: {
-    global: { lines: 90, branches: 90, functions: 90, statements: 90 },
+    // The competitor-prices module is held to the full bar; the rest of the
+    // codebase is governed by the patch-coverage gate (CI diff-cover).
+    "./src/modules/competitor-prices/**/*.ts": { lines: 90, branches: 90 },
   },
   coveragePathIgnorePatterns: ["/node_modules/"],
 }

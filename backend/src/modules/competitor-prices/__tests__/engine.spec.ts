@@ -10,7 +10,7 @@ jest.mock("crawlee", () => {
         if ((g.__failUrls || []).includes(r.url)) {
           this.opts.failedRequestHandler(
             { request: { url: r.url, userData: r.userData } },
-            new Error("net")
+            "__failError" in g ? g.__failError : new Error("net")
           )
           continue
         }
@@ -48,6 +48,12 @@ beforeAll(() => {
     key: "boom",
     parse: () => {
       throw new Error("kaboom")
+    },
+  })
+  registerScraper({
+    key: "boomstr",
+    parse: () => {
+      throw "no-message" // non-Error throw
     },
   })
 })
@@ -97,5 +103,28 @@ describe("crawlTargets", () => {
     ;(globalThis as any).__body = 123
     const res = await crawlTargets([target("m4", "echo")])
     expect(res.get("m4")?.status).toBe("ok")
+  })
+
+  it("falls back to a default message on a parser throw without a message", async () => {
+    const res = await crawlTargets([target("m5", "boomstr")])
+    expect(res.get("m5")).toMatchObject({ status: "error", errorMessage: "parse failed" })
+  })
+
+  it("falls back to a default message when the failed-request error has none", async () => {
+    ;(globalThis as any).__failUrls = ["http://x/m6"]
+    ;(globalThis as any).__failError = null
+    const res = await crawlTargets([target("m6", "echo")])
+    expect(res.get("m6")).toMatchObject({ status: "error", errorMessage: "request failed" })
+    delete (globalThis as any).__failError
+  })
+
+  it("honours explicit crawl options and skips empty script blocks", async () => {
+    ;(globalThis as any).__scripts = ["", '{"ok":1}']
+    const res = await crawlTargets([target("m7", "echo")], {
+      concurrency: 1,
+      maxRetries: 0,
+      requestTimeoutSecs: 10,
+    })
+    expect(res.get("m7")).toMatchObject({ status: "ok", price: 1 })
   })
 })
