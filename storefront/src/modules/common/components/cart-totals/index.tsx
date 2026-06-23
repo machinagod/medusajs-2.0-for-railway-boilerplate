@@ -90,6 +90,9 @@ const CartTotals: React.FC<CartTotalsProps> = ({ totals }) => {
         </span>
       </div>
       <div className="h-px w-full border-b border-gray-200 mt-4" />
+      <p className="mt-3 text-xsmall-regular text-ui-fg-muted">
+        Os preços não incluem IVA (à taxa legal em vigor).
+      </p>
     </div>
   )
 }
