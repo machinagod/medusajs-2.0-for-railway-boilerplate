@@ -33,4 +33,10 @@ export const SLIDES: Slide[] = [
     href: "/collections/unilever",
     handle: "unilever",
   },
+  {
+    title: "Vileda",
+    blurb: "Esfregões, baldes espremedores e utensílios de limpeza Vileda.",
+    href: "/collections/vileda",
+    handle: "vileda",
+  },
 ]
