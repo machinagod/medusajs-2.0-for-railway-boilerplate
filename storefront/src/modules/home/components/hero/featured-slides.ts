@@ -35,7 +35,7 @@ export const SLIDES: Slide[] = [
   },
   {
     title: "Vileda",
-    blurb: "Esfregões, baldes espremedores e utensílios de limpeza Vileda.",
+    blurb: "Mopas, panos microfibra, carros e sistemas de limpeza Vileda.",
     href: "/collections/vileda",
     handle: "vileda",
   },
