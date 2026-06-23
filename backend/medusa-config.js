@@ -183,7 +183,22 @@ const medusaConfig = {
           products: {
             type: 'products',
             enabled: true,
-            fields: ['id', 'title', 'description', 'handle', 'variant_sku', 'thumbnail'],
+            // `fields` drives the admin graph query, so the SKU must be fetched
+            // via the real relation path `variants.sku` (the flat `variant_sku`
+            // is not a graph field and is silently dropped). The transformer
+            // below flattens it into the indexed `variant_sku` attribute.
+            fields: ['id', 'title', 'description', 'handle', 'variants.sku', 'thumbnail'],
+            transformer: (product) => ({
+              id: product.id,
+              title: product.title,
+              description: product.description,
+              handle: product.handle,
+              thumbnail: product.thumbnail,
+              // Moloni reference(s) — the identifier the company/customers use.
+              variant_sku: Array.isArray(product.variants)
+                ? product.variants.map((v) => v?.sku).filter(Boolean)
+                : [],
+            }),
             indexSettings: {
               searchableAttributes: ['title', 'description', 'variant_sku'],
               displayedAttributes: ['id', 'handle', 'title', 'description', 'variant_sku', 'thumbnail'],
