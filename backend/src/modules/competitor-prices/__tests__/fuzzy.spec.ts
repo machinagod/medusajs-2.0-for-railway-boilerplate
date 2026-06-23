@@ -1,9 +1,44 @@
 import {
   normalizeText,
   diceCoefficient,
+  extractSize,
+  sizeFactor,
   matchListing,
   type CatalogItem,
 } from "../matching/fuzzy"
+
+describe("extractSize", () => {
+  it("parses volumes to ml", () => {
+    expect(extractSize("Suma Ultra L2 (20L)")).toEqual({ value: 20000, unit: "ml" })
+    expect(extractSize("Good Sense 0,75ml")).toEqual({ value: 0.75, unit: "ml" })
+    expect(extractSize("Foam 75cl")).toEqual({ value: 750, unit: "ml" })
+  })
+  it("parses weights to grams and applies multipliers", () => {
+    expect(extractSize("Cook Desentop (1,5Kg)")).toEqual({ value: 1500, unit: "g" })
+    expect(extractSize("Suma Grill D9 (6x2L)")).toEqual({ value: 12000, unit: "ml" })
+  })
+  it("parses counts", () => {
+    expect(extractSize("Aerosol Inseticida (4un)")).toEqual({ value: 4, unit: "un" })
+    expect(extractSize("Papel Jumbo (12 rolos)")).toEqual({ value: 12, unit: "un" })
+  })
+  it("returns null when no size is present", () => {
+    expect(extractSize("Saboneteira Aitana Branca")).toBeNull()
+    expect(extractSize(null)).toBeNull()
+  })
+})
+
+describe("sizeFactor", () => {
+  it("is 1 for equal or non-comparable sizes", () => {
+    expect(sizeFactor("Suma Ultra L2 20L", "Suma Ultra 20L")).toBe(1)
+    expect(sizeFactor("No size here", "Also none")).toBe(1) // both missing
+    expect(sizeFactor("Box 20L", "Box 500g")).toBe(1) // different unit family
+  })
+  it("penalises diverging sizes toward 0.5", () => {
+    expect(sizeFactor("Oxivir 5L", "Oxivir 20L")).toBeCloseTo(0.625, 3) // ratio 0.25
+    expect(sizeFactor("Oxivir 1L", "Oxivir 20L")).toBeGreaterThan(0.5)
+    expect(sizeFactor("Oxivir 1L", "Oxivir 20L")).toBeLessThan(0.55)
+  })
+})
 
 describe("normalizeText", () => {
   it("lowercases, strips accents and punctuation", () => {
@@ -63,6 +98,18 @@ describe("matchListing", () => {
     // Title resembles p2 but brand forces a mismatch → no fuzzy hit.
     const m = matchListing({ title: "Oxivir Plus 5L", brand: "OtherBrand" }, catalog)
     expect(m).toBeNull()
+  })
+
+  it("lowers fuzzy confidence when the pack size differs", () => {
+    // Same product family + brand, but our catalog item is 20L vs a 5L listing.
+    const cat: CatalogItem[] = [
+      { product_id: "p", brand: "Diversey", title: "Suma Ultra L2 20L" },
+    ]
+    const same = matchListing({ title: "Suma Ultra L2 20L", brand: "Diversey" }, cat)!
+    const diff = matchListing({ title: "Suma Ultra L2 5L", brand: "Diversey" }, cat)!
+    expect(diff.method).toBe("fuzzy")
+    // The differing size must score strictly lower than the exact-size match.
+    expect(diff.score).toBeLessThan(same.score)
   })
 
   it("returns null when nothing matches", () => {
