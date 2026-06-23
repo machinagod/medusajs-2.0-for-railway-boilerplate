@@ -21,10 +21,13 @@ on:
   pull_request:
     branches: [master]
 
-# Cancel superseded runs on the same ref.
+# Cancel superseded PR runs, but NEVER cancel a master run: cancelling mid-build
+# kills the image push before it reaches GHCR, then the deploy job redeploys a
+# stale image and times out waiting for the new SHA. On master, runs queue so
+# each commit fully builds → pushes → deploys.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # Least privilege by default; image jobs opt into packages:write.
 permissions:
