@@ -181,21 +181,63 @@ export async function runMoloniSync(
   if (entities.has("categories")) {
     const moloniCats = await moloni.listAllCategories()
     const pending = [...moloniCats]
-    // Topologically create/update: a category is ready when its parent is the
-    // root (0) or already mapped.
+
+    // Moloni brand "grouping" categories that must NOT surface as browsable
+    // Medusa categories — they duplicate storefront collections. Their children
+    // are promoted to the nearest non-hidden ancestor (root, for these), and any
+    // existing Medusa category for them is forced inactive + internal so the
+    // store API omits it. Without this the Moloni sync recreates the grouping
+    // node and re-parents its children under it on every run.
+    const HIDDEN_MOLONI_CATEGORY_IDS = new Set<number>([
+      7584765, // "Diversey Unilever" → its only child "Unilever" goes top-level
+    ])
+    const moloniParent = new Map<number, number>()
+    for (const c of moloniCats) moloniParent.set(c.category_id, c.parent_id)
+    // Resolve a Moloni parent_id to the nearest non-hidden ancestor (0 = root),
+    // skipping over any hidden grouping nodes in the chain.
+    const effParentMoloniId = (parentId: number): number => {
+      let pid = parentId
+      const seen = new Set<number>()
+      while (pid && HIDDEN_MOLONI_CATEGORY_IDS.has(pid) && !seen.has(pid)) {
+        seen.add(pid)
+        pid = moloniParent.get(pid) ?? 0
+      }
+      return pid || 0
+    }
+
+    // Topologically create/update: a category is ready when its effective parent
+    // is the root (0) or already mapped.
     let guard = pending.length + 1
     while (pending.length && guard-- > 0) {
-      const ready = pending.filter(
-        (c) => c.parent_id === 0 || categoryMap.has(c.parent_id)
-      )
+      const ready = pending.filter((c) => {
+        if (HIDDEN_MOLONI_CATEGORY_IDS.has(c.category_id)) return true
+        const ep = effParentMoloniId(c.parent_id)
+        return ep === 0 || categoryMap.has(ep)
+      })
       if (!ready.length) {
         // Orphans (parent missing in Moloni payload) — attach to root.
         ready.push(...pending)
       }
       for (const c of ready) {
-        const parentId =
-          c.parent_id === 0 ? undefined : categoryMap.get(c.parent_id)
         const existingId = categoryMap.get(c.category_id)
+
+        // Hidden grouping node: never browsable. Hide an existing one; never
+        // create one. Children resolve past it via effParentMoloniId.
+        if (HIDDEN_MOLONI_CATEGORY_IDS.has(c.category_id)) {
+          if (existingId && !dryRun) {
+            await updateProductCategoriesWorkflow(container).run({
+              input: {
+                selector: { id: existingId },
+                update: { is_active: false, is_internal: true },
+              },
+            })
+            report.categories.updated++
+          }
+          continue
+        }
+
+        const ep = effParentMoloniId(c.parent_id)
+        const parentId = ep === 0 ? undefined : categoryMap.get(ep)
         if (existingId) {
           if (!dryRun) {
             await updateProductCategoriesWorkflow(container).run({
