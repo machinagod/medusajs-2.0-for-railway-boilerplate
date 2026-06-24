@@ -117,7 +117,11 @@ export default class CompetitorPricesModuleService extends MedusaService({
 
   /** Active mappings whose next_scrape_at is due (or never scraped). */
   async listDueMappings(limit?: number, force = false): Promise<any[]> {
-    const filters: Record<string, any> = { is_active: true }
+    // Only scrape mappings resolved to one of OUR products. Deterministic catalog
+    // discovery ingests a competitor's whole catalog as `unmatched` rows (kept so
+    // re-enumeration can skip them); those have no `product_id` and must never
+    // become scrape targets — there is nothing of ours to compare them against.
+    const filters: Record<string, any> = { is_active: true, product_id: { $ne: null } }
     if (!force) {
       filters.$or = [
         { next_scrape_at: null },
