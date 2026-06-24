@@ -3,6 +3,7 @@ import { Competitor } from "./models/competitor"
 import { CompetitorProduct } from "./models/competitor-product"
 import { CompetitorPrice } from "./models/competitor-price"
 import { ProductWatch } from "./models/product-watch"
+import { ProductPriceHistory } from "./models/product-price-history"
 import { ScrapeResult } from "./scrapers/types"
 import { MatchCandidate } from "./matching/fuzzy"
 
@@ -57,6 +58,7 @@ export default class CompetitorPricesModuleService extends MedusaService({
   CompetitorProduct,
   CompetitorPrice,
   ProductWatch,
+  ProductPriceHistory,
 }) {
   static identifier = "competitor_prices"
 
