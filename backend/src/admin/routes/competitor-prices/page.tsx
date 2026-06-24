@@ -1,21 +1,21 @@
 import { defineRouteConfig } from "@medusajs/admin-sdk"
 import { CurrencyDollar } from "@medusajs/icons"
-import {
-  Badge,
-  Container,
-  createDataTableColumnHelper,
-  DataTable,
-  DataTablePaginationState,
-  Heading,
-  Text,
-  useDataTable,
-} from "@medusajs/ui"
+import { Badge, Container, Heading, Input, Table, Text } from "@medusajs/ui"
 import { useQuery } from "@tanstack/react-query"
 import { useMemo, useState } from "react"
 import { sdk } from "../../lib/sdk"
 
+type Price = {
+  price?: number | null
+  unit_price?: number | null
+  our_price?: number | null
+  currency_code?: string
+  status?: string
+  scraped_at?: string
+}
 type Row = {
   id: string
+  product_id?: string | null
   competitor?: { name?: string } | null
   title?: string | null
   product_sku?: string | null
@@ -24,190 +24,188 @@ type Row = {
   match_score?: number | null
   pack_label?: string | null
   last_error?: string | null
-  latest_price?: {
-    price?: number | null
-    unit_price?: number | null
-    our_price?: number | null
-    currency_code?: string
-    status?: string
-    scraped_at?: string
-  } | null
+  latest_price?: Price | null
 }
+type Product = { title: string; sku: string | null; our_price: number | null }
 
 const money = (minor?: number | null, cur = "EUR") =>
   minor == null ? "—" : `${(minor / 100).toFixed(2)} ${cur}`
 
-// Competitor unit price vs our price as a signed %. Positive = competitor dearer.
-const deltaPct = (r: Row): number | null => {
-  const ours = r.latest_price?.our_price
-  const theirs = r.latest_price?.unit_price ?? r.latest_price?.price
-  if (ours == null || theirs == null || ours === 0) return null
-  return ((theirs - ours) / ours) * 100
-}
-
-const columnHelper = createDataTableColumnHelper<Row>()
-
-const columns = [
-  columnHelper.accessor("competitor.name", {
-    header: "Competitor",
-    cell: ({ row }) => (
-      <Text size="small" weight="plus">
-        {row.original.competitor?.name ?? "—"}
-      </Text>
-    ),
-  }),
-  columnHelper.display({
-    id: "listing",
-    header: "Listing",
-    cell: ({ row }) =>
-      row.original.competitor_url ? (
-        <a
-          href={row.original.competitor_url}
-          target="_blank"
-          rel="noreferrer"
-          className="text-ui-fg-interactive line-clamp-1"
-        >
-          {row.original.title || row.original.competitor_url}
-        </a>
-      ) : (
-        <Text size="small">{row.original.title || "—"}</Text>
-      ),
-  }),
-  columnHelper.accessor("product_sku", {
-    header: "Our SKU",
-    cell: ({ getValue }) => (
-      <Text size="small" className="text-ui-fg-subtle">
-        {getValue() || "—"}
-      </Text>
-    ),
-  }),
-  columnHelper.display({
-    id: "match",
-    header: "Match",
-    cell: ({ row }) => (
-      <Badge size="2xsmall">
-        {row.original.match_status}
-        {row.original.match_score != null ? ` ${row.original.match_score}` : ""}
-      </Badge>
-    ),
-  }),
-  columnHelper.display({
-    id: "our_price",
-    header: "Our price",
-    cell: ({ row }) => money(row.original.latest_price?.our_price),
-  }),
-  columnHelper.display({
-    id: "competitor_price",
-    header: "Competitor (unit)",
-    cell: ({ row }) => (
-      <div>
-        {money(
-          row.original.latest_price?.unit_price ?? row.original.latest_price?.price,
-          row.original.latest_price?.currency_code
-        )}
-        {row.original.pack_label ? (
-          <Text size="xsmall" className="text-ui-fg-muted">
-            {row.original.pack_label}
-          </Text>
-        ) : null}
-      </div>
-    ),
-  }),
-  columnHelper.display({
-    id: "delta",
-    header: "Δ",
-    cell: ({ row }) => {
-      const d = deltaPct(row.original)
-      if (d == null) return "—"
-      return (
-        <Text
-          size="small"
-          className={d > 0 ? "text-ui-tag-green-text" : "text-ui-tag-red-text"}
-        >
-          {d > 0 ? "+" : ""}
-          {d.toFixed(0)}%
-        </Text>
-      )
-    },
-  }),
-  columnHelper.display({
-    id: "status",
-    header: "Scraped / status",
-    cell: ({ row }) =>
-      row.original.latest_price?.scraped_at ? (
-        <Text size="small" className="text-ui-fg-subtle">
-          {new Date(row.original.latest_price.scraped_at).toLocaleDateString()}
-        </Text>
-      ) : row.original.last_error ? (
-        <Text size="xsmall" className="text-ui-fg-error line-clamp-1">
-          {row.original.last_error}
-        </Text>
-      ) : (
-        "—"
-      ),
-  }),
-]
-
-const PAGE_SIZE = 20
+type Group = { product_id: string; product?: Product; rows: Row[]; ourPrice: number | null }
 
 const CompetitorPricesPage = () => {
-  const [pagination, setPagination] = useState<DataTablePaginationState>({
-    pageIndex: 0,
-    pageSize: PAGE_SIZE,
-  })
   const [search, setSearch] = useState("")
-
   const { data, isLoading } = useQuery({
     queryKey: ["competitor-products"],
     queryFn: () =>
-      sdk.client.fetch<{ competitor_products: Row[] }>(
+      sdk.client.fetch<{ competitor_products: Row[]; products: Record<string, Product> }>(
         "/admin/competitor-products",
         { method: "GET" }
       ),
   })
 
-  const all = data?.competitor_products ?? []
-  const filtered = useMemo(() => {
+  const groups = useMemo<Group[]>(() => {
+    const rows = data?.competitor_products ?? []
+    const products = data?.products ?? {}
+    const byProduct = new Map<string, Row[]>()
+    for (const r of rows) {
+      const key = r.product_id ?? "_unmatched"
+      if (!byProduct.has(key)) byProduct.set(key, [])
+      byProduct.get(key)!.push(r)
+    }
+    let gs: Group[] = [...byProduct.entries()].map(([product_id, rs]) => {
+      const product = products[product_id]
+      const ourPrice =
+        product?.our_price ??
+        rs.find((r) => r.latest_price?.our_price != null)?.latest_price?.our_price ??
+        null
+      return { product_id, product, rows: rs, ourPrice }
+    })
     const q = search.trim().toLowerCase()
-    if (!q) return all
-    return all.filter((r) =>
-      [r.competitor?.name, r.title, r.product_sku]
-        .filter(Boolean)
-        .some((v) => String(v).toLowerCase().includes(q))
-    )
-  }, [all, search])
-
-  const page = useMemo(() => {
-    const start = pagination.pageIndex * pagination.pageSize
-    return filtered.slice(start, start + pagination.pageSize)
-  }, [filtered, pagination])
-
-  const table = useDataTable({
-    columns,
-    data: page,
-    rowCount: filtered.length,
-    getRowId: (row) => row.id,
-    isLoading,
-    pagination: { state: pagination, onPaginationChange: setPagination },
-    search: { state: search, onSearchChange: setSearch },
-  })
+    if (q) {
+      gs = gs.filter((g) =>
+        [g.product?.title, g.product?.sku, ...g.rows.map((r) => r.competitor?.name), ...g.rows.map((r) => r.title)]
+          .filter(Boolean)
+          .some((v) => String(v).toLowerCase().includes(q))
+      )
+    }
+    return gs.sort((a, b) => (a.product?.title ?? "").localeCompare(b.product?.title ?? ""))
+  }, [data, search])
 
   return (
     <Container className="divide-y p-0">
-      <DataTable instance={table}>
-        <DataTable.Toolbar className="flex flex-col items-start justify-between gap-2 px-6 py-4 md:flex-row md:items-center">
-          <div>
-            <Heading>Competitor Prices</Heading>
-            <Text size="small" className="text-ui-fg-subtle">
-              Latest competitor price per mapped product, vs ours.
-            </Text>
-          </div>
-          <DataTable.Search placeholder="Search competitor / product / SKU…" />
-        </DataTable.Toolbar>
-        <DataTable.Table />
-        <DataTable.Pagination />
-      </DataTable>
+      <div className="flex flex-col gap-y-2 px-6 py-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <Heading>Competitor Prices</Heading>
+          <Text size="small" className="text-ui-fg-subtle">
+            Competitor listings grouped by our product — our price vs each competitor.
+          </Text>
+        </div>
+        <Input
+          type="search"
+          placeholder="Search product / SKU / competitor…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="md:w-72"
+        />
+      </div>
+
+      {isLoading && (
+        <div className="px-6 py-6">
+          <Text size="small">Loading…</Text>
+        </div>
+      )}
+      {!isLoading && groups.length === 0 && (
+        <div className="px-6 py-6">
+          <Text size="small" className="text-ui-fg-subtle">
+            No competitor mappings yet.
+          </Text>
+        </div>
+      )}
+
+      {groups.map((g) => (
+        <ProductGroup key={g.product_id} group={g} />
+      ))}
     </Container>
+  )
+}
+
+const ProductGroup = ({ group }: { group: Group }) => {
+  const { product, rows, ourPrice } = group
+  const title = product?.title ?? rows[0]?.title ?? group.product_id
+  const sku = product?.sku ?? rows[0]?.product_sku
+  return (
+    <div className="px-6 py-4">
+      {/* Heading: our product + our price (shown once per group) */}
+      <div className="mb-3 flex items-center justify-between gap-x-4">
+        <div className="flex items-center gap-x-2">
+          <Text weight="plus">{title}</Text>
+          {sku ? <Badge size="2xsmall">{sku}</Badge> : null}
+          <Text size="small" className="text-ui-fg-subtle">
+            {rows.length} competitor{rows.length === 1 ? "" : "s"}
+          </Text>
+        </div>
+        <div className="text-right">
+          <Text size="xsmall" className="text-ui-fg-muted">
+            Our price
+          </Text>
+          <Text weight="plus">{money(ourPrice)}</Text>
+        </div>
+      </div>
+
+      <Table>
+        <Table.Header>
+          <Table.Row>
+            <Table.HeaderCell>Competitor</Table.HeaderCell>
+            <Table.HeaderCell>Listing</Table.HeaderCell>
+            <Table.HeaderCell>Match</Table.HeaderCell>
+            <Table.HeaderCell>Price (unit)</Table.HeaderCell>
+            <Table.HeaderCell>Δ vs us</Table.HeaderCell>
+            <Table.HeaderCell>Status</Table.HeaderCell>
+          </Table.Row>
+        </Table.Header>
+        <Table.Body>
+          {rows.map((r) => (
+            <CompetitorRow key={r.id} row={r} ourPrice={ourPrice} />
+          ))}
+        </Table.Body>
+      </Table>
+    </div>
+  )
+}
+
+const CompetitorRow = ({ row, ourPrice }: { row: Row; ourPrice: number | null }) => {
+  const lp = row.latest_price
+  const comp = lp?.status === "ok" ? lp.unit_price ?? lp.price ?? null : null
+  const d = comp != null && ourPrice ? ((comp - ourPrice) / ourPrice) * 100 : null
+  return (
+    <Table.Row>
+      <Table.Cell>{row.competitor?.name ?? "—"}</Table.Cell>
+      <Table.Cell className="max-w-[260px] truncate">
+        {row.competitor_url ? (
+          <a href={row.competitor_url} target="_blank" rel="noreferrer" className="text-ui-fg-interactive">
+            {row.title || row.competitor_url}
+          </a>
+        ) : (
+          row.title || "—"
+        )}
+        {row.pack_label ? (
+          <Text size="xsmall" className="text-ui-fg-muted">
+            {row.pack_label}
+          </Text>
+        ) : null}
+      </Table.Cell>
+      <Table.Cell>
+        <Badge size="2xsmall">
+          {row.match_status}
+          {row.match_score != null ? ` ${row.match_score}` : ""}
+        </Badge>
+      </Table.Cell>
+      <Table.Cell>{money(comp, lp?.currency_code)}</Table.Cell>
+      <Table.Cell>
+        {d == null ? (
+          "—"
+        ) : (
+          <Text size="small" className={d > 0 ? "text-ui-tag-green-text" : "text-ui-tag-red-text"}>
+            {d > 0 ? "+" : ""}
+            {d.toFixed(0)}%
+          </Text>
+        )}
+      </Table.Cell>
+      <Table.Cell>
+        {lp?.scraped_at ? (
+          <Text size="xsmall" className="text-ui-fg-subtle">
+            {new Date(lp.scraped_at).toLocaleDateString()}
+          </Text>
+        ) : row.last_error ? (
+          <Text size="xsmall" className="text-ui-fg-error line-clamp-1">
+            {row.last_error}
+          </Text>
+        ) : (
+          "—"
+        )}
+      </Table.Cell>
+    </Table.Row>
   )
 }
 

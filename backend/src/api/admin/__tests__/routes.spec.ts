@@ -45,18 +45,29 @@ describe("admin routes", () => {
     expect(res2.json).toHaveBeenCalledWith({ competitor: { id: "new" } })
   })
 
-  it("GET /admin/competitor-products attaches the latest price + applies filters", async () => {
+  const cpReq = (svc: any, query: any, q: any = {}) => ({
+    scope: { resolve: (n: string) => (n === "query" ? query : svc) },
+    body: {},
+    query: q,
+  })
+
+  it("GET /admin/competitor-products attaches latest price + our product map", async () => {
     const svc = {
       listCompetitorProducts: jest.fn().mockResolvedValue([
-        { id: "m1", competitor: {}, prices: [
+        { id: "m1", product_id: "p1", competitor: {}, prices: [
           { price: 1, scraped_at: "2024-01-01" },
           { price: 2, scraped_at: "2024-02-01" },
         ] },
         { id: "m2", competitor: {}, prices: [] },
       ]),
     }
+    const query = {
+      graph: jest.fn().mockResolvedValue({
+        data: [{ id: "p1", title: "Our Prod", variants: [{ sku: "S1", calculated_price: { calculated_amount: 82.17 } }] }],
+      }),
+    }
     const res = makeRes()
-    await cpGET(makeReq(svc, {}, { product_id: "p", competitor_id: "c", match_status: "confirmed" }) as any, res)
+    await cpGET(cpReq(svc, query, { product_id: "p", competitor_id: "c", match_status: "confirmed" }) as any, res)
     expect(svc.listCompetitorProducts).toHaveBeenCalledWith(
       { product_id: "p", competitor_id: "c", match_status: "confirmed" },
       expect.objectContaining({ relations: ["competitor", "prices"] })
@@ -66,6 +77,15 @@ describe("admin routes", () => {
     expect(payload.competitor_products[0].latest_price.price).toBe(2)
     expect(payload.competitor_products[1].latest_price).toBeNull()
     expect(payload.competitor_products[0].prices).toBeUndefined()
+    expect(payload.products.p1).toMatchObject({ title: "Our Prod", sku: "S1", our_price: 8217 })
+  })
+
+  it("GET /admin/competitor-products tolerates a product-price lookup failure", async () => {
+    const svc = { listCompetitorProducts: jest.fn().mockResolvedValue([{ id: "m1", product_id: "p1", competitor: {}, prices: [] }]) }
+    const query = { graph: jest.fn().mockRejectedValue(new Error("pricing down")) }
+    const res = makeRes()
+    await cpGET(cpReq(svc, query) as any, res)
+    expect(res.json.mock.calls[0][0].products).toEqual({})
   })
 
   it("POST /admin/competitor-products", async () => {

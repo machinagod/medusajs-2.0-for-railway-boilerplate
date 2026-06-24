@@ -297,13 +297,23 @@ export default class CompetitorPricesModuleService extends MedusaService({
     handle: string
     name?: string
     base_url?: string
+    country?: string
+    scraper_key?: string
+    discovered?: boolean
   }): Promise<any> {
     const [existing] = await this.listCompetitors({ handle: input.handle })
     if (existing) return existing
+    // A brand-new store surfaced by discovery: default to the generic scraper and
+    // flag it as discovered so a human can review the addition.
     return this.createCompetitors({
       handle: input.handle,
       name: input.name ?? input.handle,
-      base_url: input.base_url ?? null,
+      base_url: input.base_url ?? undefined,
+      country: input.country ?? undefined,
+      scraper_key: input.scraper_key ?? "generic-jsonld",
+      ...(input.discovered
+        ? { metadata: { discovered: true, discovered_at: new Date().toISOString() } }
+        : {}),
     })
   }
 

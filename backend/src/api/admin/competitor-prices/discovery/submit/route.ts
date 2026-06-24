@@ -5,6 +5,8 @@ interface SubmitListing {
   competitor_handle: string
   competitor_name?: string
   competitor_base_url?: string
+  competitor_country?: string // PT/ES — set for newly-discovered stores
+  is_new_competitor?: boolean // worker flags a store not in our set
   url: string
   title?: string
   brand?: string
@@ -55,6 +57,10 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
       handle: l.competitor_handle,
       name: l.competitor_name,
       base_url: l.competitor_base_url,
+      country: l.competitor_country,
+      // A store the worker found that wasn't in our set is created (flagged
+      // discovered) so it joins the watchlist for future scrapes/review.
+      discovered: l.is_new_competitor,
     })
     const mapping = await svc.upsertDiscoveredMapping(
       competitor.id,

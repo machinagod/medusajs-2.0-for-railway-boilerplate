@@ -299,13 +299,38 @@ describe("discovery scheduling + upserts", () => {
     expect(svc.createCompetitorProducts.mock.calls[2][0].match_score).toBeNull()
   })
 
-  it("ensureCompetitor passes through an explicit base_url", async () => {
+  it("ensureCompetitor passes through base_url and defaults the scraper", async () => {
     const svc = makeSvc()
     svc.listCompetitors.mockResolvedValueOnce([])
     svc.createCompetitors.mockResolvedValueOnce({ id: "n" })
     await svc.ensureCompetitor({ handle: "h", name: "N", base_url: "http://n" })
     expect(svc.createCompetitors).toHaveBeenCalledWith(
-      expect.objectContaining({ handle: "h", base_url: "http://n" })
+      expect.objectContaining({
+        handle: "h",
+        base_url: "http://n",
+        scraper_key: "generic-jsonld",
+      })
+    )
+    expect(svc.createCompetitors.mock.calls[0][0].metadata).toBeUndefined()
+  })
+
+  it("ensureCompetitor flags a newly-discovered store with country + metadata", async () => {
+    const svc = makeSvc()
+    svc.listCompetitors.mockResolvedValueOnce([])
+    svc.createCompetitors.mockResolvedValueOnce({ id: "d" })
+    await svc.ensureCompetitor({
+      handle: "newstore-pt",
+      country: "PT",
+      scraper_key: "prestashop",
+      discovered: true,
+    })
+    expect(svc.createCompetitors).toHaveBeenCalledWith(
+      expect.objectContaining({
+        handle: "newstore-pt",
+        country: "PT",
+        scraper_key: "prestashop",
+        metadata: expect.objectContaining({ discovered: true }),
+      })
     )
   })
 })

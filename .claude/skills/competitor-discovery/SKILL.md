@@ -51,6 +51,24 @@ a skip — the absurd Δ it produces has to be cleaned up by hand.
 public price verified but size shown via a multi-size selector (slight
 ambiguity); never submit > 80 if you did not actually see the price.
 
+## Discovering NEW stores (grow the competitor set)
+
+If your research surfaces a store that is **NOT** in the competitor list but
+**(a)** publicly sells our product at a public EUR price and **(b)** is a real
+distributor that **serves Portugal or Spain**, treat it as a candidate to ADD.
+Include it as a normal listing plus these fields, and the submit endpoint will
+create the competitor (flagged `discovered` for human review) so it joins the
+watchlist:
+
+```json
+{"competitor_handle":"newstore-pt","competitor_name":"New Store","competitor_base_url":"https://newstore.pt","competitor_country":"PT","is_new_competitor":true,"url":"https://newstore.pt/...","title":"…","confidence":90}
+```
+
+Be conservative: only credible PT/ES B2B cleaning/hygiene distributors (a real
+storefront, public prices, ships to PT/ES). NOT marketplaces (Amazon/eBay), NOT
+manufacturer eshops (diversey.*), NOT shops outside Iberia. `handle` = kebab-case
++ `-pt`/`-es` suffix. When unsure, don't add — note it in your report instead.
+
 ## Site intel (saves fetches — current as of this writing, re-verify if stale)
 
 - **Public prices (target these):** `egi-pt` (richest — carries most of the
@@ -81,11 +99,15 @@ ambiguity); never submit > 80 if you did not actually see the price.
 Parallelise the slow web research; keep the writes central.
 
 - Spawn **research subagents on the `sonnet` model** (`model: "sonnet"`), ~3
-  watches each. They are **READ-ONLY**: WebSearch/WebFetch only, **never POST**.
-  (Sonnet follows the submission gate far more reliably than Haiku — worth the
-  cost for submit-ready output.)
+  watches each. (Sonnet follows the submission gate far more reliably than Haiku
+  — worth the cost for submit-ready output.)
+- **Subagents are PURE WEB RESEARCH: WebSearch/WebFetch only.** They must NOT run
+  curl, authenticate, or call the Medusa backend in any way — tell them so
+  explicitly (some will otherwise try to run this whole skill and hit the
+  permission classifier). Only the orchestrator touches the backend.
 - Give each subagent: its assigned watches (it must stay on those `watch_id`s
-  only), the competitor list, the submission gate above, and the site intel.
+  only), the competitor list, the submission gate above (incl. new-store rule),
+  and the site intel.
 - Each subagent returns **STRICT JSON only**:
   `{"results":[{"watch_id":"…","listings":[{"competitor_handle":"…","url":"…","title":"…","confidence":95}]}]}`
   (empty `listings` = skip).

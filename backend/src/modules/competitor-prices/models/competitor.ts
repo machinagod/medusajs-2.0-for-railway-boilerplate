@@ -12,6 +12,7 @@ export const Competitor = model
     name: model.text(),
     handle: model.text(),
     base_url: model.text().nullable(),
+    country: model.text().nullable(), // ISO-ish market code, e.g. PT / ES
     scraper_key: model.text().default("generic-jsonld"),
     is_active: model.boolean().default(true),
     // Competitor-level default refresh interval (seconds).
