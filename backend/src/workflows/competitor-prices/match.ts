@@ -14,7 +14,8 @@ export interface MatchReport {
   considered: number
   confirmed: number
   fuzzy: number
-  unmatched: number
+  /** No product of ours matched — retained as competitor-only assortment data. */
+  catalog_only: number
 }
 
 /**
@@ -37,7 +38,12 @@ export async function runCompetitorMatch(
 
   const filters: Record<string, any> = opts.mappingIds?.length
     ? { id: opts.mappingIds }
-    : { match_status: opts.rematch ? ["unmatched", "fuzzy"] : "unmatched" }
+    : {
+        // Default: only freshly ingested (`unmatched`) rows. A rematch also
+        // revisits `fuzzy` (pending review) and `catalog_only` rows — the latter
+        // can newly match as our own catalog grows.
+        match_status: opts.rematch ? ["unmatched", "fuzzy", "catalog_only"] : "unmatched",
+      }
 
   const mappings: any[] = await svc.listCompetitorProducts(filters, {
     take: opts.limit ?? 500,
@@ -47,7 +53,7 @@ export async function runCompetitorMatch(
     considered: mappings.length,
     confirmed: 0,
     fuzzy: 0,
-    unmatched: 0,
+    catalog_only: 0,
   }
 
   for (const m of mappings) {
@@ -65,7 +71,7 @@ export async function runCompetitorMatch(
   }
 
   logger.info(
-    `[competitor-prices] match considered=${report.considered} confirmed=${report.confirmed} fuzzy=${report.fuzzy} unmatched=${report.unmatched}`
+    `[competitor-prices] match considered=${report.considered} confirmed=${report.confirmed} fuzzy=${report.fuzzy} catalog_only=${report.catalog_only}`
   )
   return report
 }

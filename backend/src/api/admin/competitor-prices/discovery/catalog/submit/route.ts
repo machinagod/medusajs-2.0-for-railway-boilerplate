@@ -65,7 +65,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
   // Resolve the freshly ingested listings against our catalog.
   const report = newIds.length
     ? await runCompetitorMatch(req.scope, { mappingIds: newIds })
-    : { considered: 0, confirmed: 0, fuzzy: 0, unmatched: 0 }
+    : { considered: 0, confirmed: 0, fuzzy: 0, catalog_only: 0 }
 
   res.json({
     competitor_id: competitor.id,

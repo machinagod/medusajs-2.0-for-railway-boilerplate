@@ -18,7 +18,10 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
   })
   const [, totalMappings] = await svc.listAndCountCompetitorProducts({})
   const [, unmatched] = await svc.listAndCountCompetitorProducts({
-    match_status: "unmatched",
+    match_status: "unmatched", // transient: freshly ingested, not yet matched
+  })
+  const [, catalogOnly] = await svc.listAndCountCompetitorProducts({
+    match_status: "catalog_only", // competitor catalog items outside our assortment
   })
 
   res.json({
@@ -26,6 +29,7 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
     total_watches: totalWatches,
     total_mappings: totalMappings,
     unmatched_mappings: unmatched,
-    matched_mappings: totalMappings - unmatched,
+    catalog_only_mappings: catalogOnly,
+    matched_mappings: totalMappings - unmatched - catalogOnly,
   })
 }

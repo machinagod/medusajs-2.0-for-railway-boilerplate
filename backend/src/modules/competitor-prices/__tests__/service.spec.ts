@@ -231,10 +231,10 @@ describe("recordObservation", () => {
 })
 
 describe("applyMatch", () => {
-  it("clears to unmatched with no candidate", async () => {
+  it("buckets a no-candidate mapping as catalog_only", async () => {
     const svc = makeSvc()
-    expect(await svc.applyMatch({ id: "m" }, null)).toBe("unmatched")
-    expect(svc.updateCompetitorProducts).toHaveBeenCalledWith({ id: "m", match_status: "unmatched" })
+    expect(await svc.applyMatch({ id: "m" }, null)).toBe("catalog_only")
+    expect(svc.updateCompetitorProducts).toHaveBeenCalledWith({ id: "m", match_status: "catalog_only" })
   })
 
   it("confirms a strong candidate and stores match metadata", async () => {

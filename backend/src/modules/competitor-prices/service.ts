@@ -218,13 +218,17 @@ export default class CompetitorPricesModuleService extends MedusaService({
   async applyMatch(
     mapping: any,
     candidate: MatchCandidate | null
-  ): Promise<"confirmed" | "fuzzy" | "unmatched"> {
+  ): Promise<"confirmed" | "fuzzy" | "catalog_only"> {
     if (!candidate) {
+      // No product of ours matched. This is a competitor catalog item outside our
+      // assortment — keep it as a distinct, retained category (`catalog_only`)
+      // rather than the transient `unmatched` (pre-match) state, so it's queryable
+      // assortment intelligence and isn't re-matched on every pass.
       await this.updateCompetitorProducts({
         id: mapping.id,
-        match_status: "unmatched",
+        match_status: "catalog_only",
       })
-      return "unmatched"
+      return "catalog_only"
     }
     const status =
       candidate.score >= this.options_.autoConfirmScore ? "confirmed" : "fuzzy"

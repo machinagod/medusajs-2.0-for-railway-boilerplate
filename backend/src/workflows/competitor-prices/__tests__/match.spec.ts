@@ -62,6 +62,8 @@ describe("runCompetitorMatch", () => {
     expect(svc.listCompetitorProducts.mock.calls[1][0]).toEqual({ match_status: "unmatched" })
 
     await runCompetitorMatch(c, { rematch: true })
-    expect(svc.listCompetitorProducts.mock.calls[2][0]).toEqual({ match_status: ["unmatched", "fuzzy"] })
+    expect(svc.listCompetitorProducts.mock.calls[2][0]).toEqual({
+      match_status: ["unmatched", "fuzzy", "catalog_only"],
+    })
   })
 })

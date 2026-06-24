@@ -17,6 +17,7 @@ import { GET as parserIssuesGET } from "../competitor-prices/discovery/parser-is
 import { POST as fixParserPOST } from "../competitor-prices/discovery/fix-parser/route"
 import { GET as catBatchGET } from "../competitor-prices/discovery/catalog/next-batch/route"
 import { POST as catSubmitPOST } from "../competitor-prices/discovery/catalog/submit/route"
+import { GET as catalogItemsGET } from "../competitor-prices/catalog-items/route"
 import { GET as gapsGET } from "../competitor-prices/gaps/route"
 import { GET as historyGET } from "../competitor-prices/price-history/route"
 import { runCompetitorMatch } from "../../../workflows/competitor-prices/match"
@@ -317,7 +318,8 @@ describe("discovery queue routes", () => {
       listAndCountCompetitorProducts: jest
         .fn()
         .mockResolvedValueOnce([[], 40]) // total mappings
-        .mockResolvedValueOnce([[], 15]), // unmatched
+        .mockResolvedValueOnce([[], 15]) // unmatched (transient)
+        .mockResolvedValueOnce([[], 8]), // catalog_only
     }
     const res = makeRes()
     await dqStatsGET(makeReq(svc) as any, res)
@@ -326,7 +328,8 @@ describe("discovery queue routes", () => {
       due_watches: 12,
       total_mappings: 40,
       unmatched_mappings: 15,
-      matched_mappings: 25,
+      catalog_only_mappings: 8,
+      matched_mappings: 17, // 40 - 15 - 8
     })
   })
 })
@@ -348,7 +351,7 @@ describe("catalog (reverse) discovery routes", () => {
   })
 
   it("POST /discovery/catalog/submit ingests listings, marks crawled, and runs the matcher", async () => {
-    ;(runCompetitorMatch as jest.Mock).mockResolvedValueOnce({ considered: 1, confirmed: 1, fuzzy: 1, unmatched: 0 })
+    ;(runCompetitorMatch as jest.Mock).mockResolvedValueOnce({ considered: 1, confirmed: 1, fuzzy: 1, catalog_only: 0 })
     const svc = {
       listCompetitors: jest.fn().mockResolvedValue([{ id: "c1", handle: "egi-pt" }]),
       upsertDiscoveredMapping: jest.fn().mockResolvedValue({ id: "m1", match_status: "unmatched" }),
@@ -383,6 +386,52 @@ describe("catalog (reverse) discovery routes", () => {
     await catSubmitPOST(makeReq(svc, { competitor_id: "c1", listings: [{ url: "https://h/p" }] }) as any, res)
     expect(runCompetitorMatch).not.toHaveBeenCalled()
     expect(res.json.mock.calls[0][0]).toMatchObject({ created: 0, matched: 0 })
+  })
+})
+
+describe("catalog-items (assortment-gap) viewer", () => {
+  it("GET /catalog-items lists catalog_only mappings with competitor + paging", async () => {
+    const svc = {
+      listAndCountCompetitorProducts: jest.fn().mockResolvedValue([
+        [
+          {
+            id: "m1",
+            competitor_url: "https://egi.com.pt/x",
+            title: "Rival 20L",
+            brand: "Other",
+            competitor_sku: "999",
+            competitor_ean: null,
+            competitor: { handle: "egi-pt", name: "EGI", country: "PT" },
+            metadata: { discovered_at: "2026-06-25T00:00:00.000Z" },
+          },
+        ],
+        1,
+      ]),
+    }
+    const res = makeRes()
+    await catalogItemsGET(makeReq(svc, {}, { limit: "10", offset: "5", competitor_id: "c1" }) as any, res)
+    const [filters, config] = svc.listAndCountCompetitorProducts.mock.calls[0]
+    expect(filters).toEqual({ match_status: "catalog_only", competitor_id: "c1" })
+    expect(config).toMatchObject({ take: 10, skip: 5, relations: ["competitor"] })
+    const payload = res.json.mock.calls[0][0]
+    expect(payload).toMatchObject({ count: 1, limit: 10, offset: 5 })
+    expect(payload.items[0]).toMatchObject({
+      id: "m1",
+      competitor_handle: "egi-pt",
+      url: "https://egi.com.pt/x",
+      title: "Rival 20L",
+      discovered_at: "2026-06-25T00:00:00.000Z",
+    })
+  })
+
+  it("GET /catalog-items defaults paging and omits the competitor filter", async () => {
+    const svc = { listAndCountCompetitorProducts: jest.fn().mockResolvedValue([[], 0]) }
+    const res = makeRes()
+    await catalogItemsGET(makeReq(svc) as any, res)
+    const [filters, config] = svc.listAndCountCompetitorProducts.mock.calls[0]
+    expect(filters).toEqual({ match_status: "catalog_only" })
+    expect(config).toMatchObject({ take: 50, skip: 0 })
+    expect(res.json.mock.calls[0][0]).toMatchObject({ count: 0, items: [] })
   })
 })
 
