@@ -157,6 +157,30 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
+        id: buildx
+
+      # Persist the pnpm store across runs. The image's layer cache (type=gha)
+      # skips the root install when the lockfile is unchanged — but postBuild then
+      # `pnpm i --prod`s a fresh .medusa/server tree inside the same RUN, so on a
+      # cold runner that re-downloads every prod dep (the bulk of the 7-min build).
+      # cache-dance restores /pnpm/store before the build so postBuild hardlinks
+      # from a warm store instead of downloading.
+      - name: pnpm store cache
+        id: pnpm-store
+        uses: actions/cache@v4
+        with:
+          path: .pnpm-store-backend
+          key: pnpm-store-backend-${{ hashFiles('backend/pnpm-lock.yaml') }}
+          restore-keys: pnpm-store-backend-
+      - name: Inject pnpm store into the build
+        uses: reproducible-containers/buildkit-cache-dance@v3.1.2
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          cache-map: |
+            {
+              ".pnpm-store-backend": "/pnpm/store"
+            }
+          skip-extraction: ${{ steps.pnpm-store.outputs.cache-hit == 'true' }}
 
       - name: Image metadata
         id: meta
