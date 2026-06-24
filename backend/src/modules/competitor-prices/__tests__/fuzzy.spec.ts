@@ -25,6 +25,34 @@ describe("extractSize", () => {
     expect(extractSize("Saboneteira Aitana Branca")).toBeNull()
     expect(extractSize(null)).toBeNull()
   })
+
+  // Corpus-tuned cases (real product + competitor titles).
+  it("handles the competitor 'lts/LTS' litre spelling", () => {
+    expect(extractSize("CLAX Build 12B1 20LTS")).toEqual({ value: 20000, unit: "ml" })
+    expect(extractSize("Clax Deosoft Iris conc 54B2 20lts")).toEqual({ value: 20000, unit: "ml" })
+    expect(extractSize("Suma Grill D9 6X2LTS")).toEqual({ value: 12000, unit: "ml" })
+    expect(extractSize("Suma Bac D10 Smartdose 2x1.4lts")).toEqual({ value: 2800, unit: "ml" })
+  })
+  it("treats cc as ml and gr as g", () => {
+    expect(extractSize("Copo de Policarbonato 250cc")).toEqual({ value: 250, unit: "ml" })
+    expect(extractSize("Detergente Pó 500gr")).toEqual({ value: 500, unit: "g" })
+  })
+  it("lets volume/weight win over a count token", () => {
+    expect(extractSize("SKIP PROFESSIONAL LIQUIDO 10L 133 doses")).toEqual({ value: 10000, unit: "ml" })
+    expect(extractSize("Caixas Retangulares 800ml (4un)")).toEqual({ value: 800, unit: "ml" })
+    expect(extractSize("Clax Revoflow Pro 35X1 (4Kg)")).toEqual({ value: 4000, unit: "g" })
+  })
+  it("parses extra count spellings", () => {
+    expect(extractSize("TASKI JM Ultra Dump Mop 40cm Azul 10 unid.")).toEqual({ value: 10, unit: "un" })
+    expect(extractSize("Suma Dify MA1 60 saquetas")).toEqual({ value: 60, unit: "un" })
+    expect(extractSize("Sani Uribloc W4g (50pc)")).toEqual({ value: 50, unit: "un" })
+    expect(extractSize("Esfregão (2 maços)")).toEqual({ value: 2, unit: "un" })
+  })
+  it("ignores dimensions and reference codes", () => {
+    expect(extractSize("Prato Fundo Policarbonato Branco 18,5cm")).toBeNull()
+    expect(extractSize("A Divermite Plus (67067) para D1")).toBeNull()
+    expect(extractSize("Parafuso Plástico Ka (50x40)")).toBeNull()
+  })
 })
 
 describe("sizeFactor", () => {

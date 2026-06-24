@@ -50,37 +50,66 @@ const normRef = (s: string | null | undefined): string =>
 /**
  * Extract a comparable pack/size signature from a product title, in a canonical
  * base unit, so two listings can be checked for size compatibility:
- *   "20L" → 20000 ml · "1,5Kg" → 1500 g · "6x2L" → 12000 ml · "100un" → 100 un
+ *   "20L"   → 20000 ml · "20lts" → 20000 ml (competitor spelling)
+ *   "1,5Kg" → 1500 g   · "6x2L"  → 12000 ml · "6X2LTS" → 12000 ml
+ *   "325cc" → 325 ml (1 cc = 1 ml) · "100un" → 100 un
+ *   "100 Doses (7,5L)" → 7500 ml (volume wins over count)
  * Returns null when no size is detectable. We only compare within the same unit
  * family (volume / weight / count); mismatched families don't penalise.
+ *
+ * Tuned against the real product + competitor title corpus. Two design points:
+ * - The `(?<![a-z])` lookbehind blocks product-code fragments like "W4g",
+ *   "35X1", "42c1" from being misread as a size.
+ * - Volume/weight is matched first; only when it finds nothing do we look for a
+ *   count unit — so "800ml (4un)" and "133 doses 10L" price by €/L, not by
+ *   piece. Decimal comma (ours) and dot (competitors) both work.
  */
 export function extractSize(
   title: string | null | undefined
 ): { value: number; unit: "ml" | "g" | "un" } | null {
-  const t = (title ?? "").toLowerCase().replace(/,/g, ".")
-  // Optional leading multiplier, e.g. "6x2l", "6 x 0.75ml", "10 x 25".
-  const m = t.match(
-    /(?:(\d+(?:\.\d+)?)\s*[x×]\s*)?(\d+(?:\.\d+)?)\s*(l|ml|cl|kg|g|gr|un|u|rolos?|ma[çc]os?|folhas|sacos)\b/
+  const t = (title ?? "")
+    .toLowerCase()
+    .replace(/,/g, ".") // decimal comma → dot (both corpora)
+    .replace(/['"`´’‘”“]/g, "") // strip inch/quote marks (pad size "16''")
+
+  // ── Pass 1: volume or weight (higher priority). lts|lt before l so the
+  //    longest spelling wins; lookbehind anchors away from alpha-embedded codes.
+  const vw = t.match(
+    /(?<![a-z])(?:(\d+(?:\.\d+)?)\s*[x×]\s*)?(\d+(?:\.\d+)?)\s*(lts|lt|l|ml|cl|cc|kg|g|gr)\b/
   )
-  if (!m) return null
-  const mult = m[1] ? parseFloat(m[1]) : 1
-  const qty = parseFloat(m[2]) * mult
-  if (!isFinite(qty) || qty <= 0) return null
-  switch (m[3]) {
-    case "l":
-      return { value: qty * 1000, unit: "ml" }
-    case "cl":
-      return { value: qty * 10, unit: "ml" }
-    case "ml":
-      return { value: qty, unit: "ml" }
-    case "kg":
-      return { value: qty * 1000, unit: "g" }
-    case "g":
-    case "gr":
-      return { value: qty, unit: "g" }
-    default:
-      return { value: qty, unit: "un" } // un / u / rolos / maços / folhas / sacos
+  if (vw) {
+    const mult = vw[1] ? parseFloat(vw[1]) : 1
+    const qty = parseFloat(vw[2]) * mult
+    if (isFinite(qty) && qty > 0) {
+      switch (vw[3]) {
+        case "l":
+        case "lt":
+        case "lts":
+          return { value: qty * 1000, unit: "ml" }
+        case "cl":
+          return { value: qty * 10, unit: "ml" }
+        case "ml":
+        case "cc": // 1 cc = 1 ml (polycarbonate tableware)
+          return { value: qty, unit: "ml" }
+        case "kg":
+          return { value: qty * 1000, unit: "g" }
+        default: // g | gr
+          return { value: qty, unit: "g" }
+      }
+    }
   }
+
+  // ── Pass 2: count units (only reached when no volume/weight was found).
+  const ct = t.match(
+    /(?<![a-z])(?:(\d+(?:\.\d+)?)\s*[x×]\s*)?(\d+(?:\.\d+)?)\s*(un|unid|u|rolos?|folhas?|sacos?|saquetas?|doses?|ma[çc]os?|pc)\b/
+  )
+  if (ct) {
+    const mult = ct[1] ? parseFloat(ct[1]) : 1
+    const qty = parseFloat(ct[2]) * mult
+    if (isFinite(qty) && qty > 0) return { value: qty, unit: "un" }
+  }
+
+  return null
 }
 
 /**
