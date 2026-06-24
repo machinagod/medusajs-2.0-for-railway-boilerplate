@@ -1,6 +1,6 @@
 import { defineRouteConfig } from "@medusajs/admin-sdk"
 import { CurrencyDollar } from "@medusajs/icons"
-import { Badge, Container, Heading, Input, Table, Text } from "@medusajs/ui"
+import { Badge, Container, Heading, Input, Text } from "@medusajs/ui"
 import { useQuery } from "@tanstack/react-query"
 import { useMemo, useState } from "react"
 import { sdk } from "../../lib/sdk"
@@ -74,7 +74,7 @@ const CompetitorPricesPage = () => {
 
   return (
     <Container className="divide-y p-0">
-      <div className="flex flex-col gap-y-2 px-6 py-4 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-y-3 px-4 py-4 md:flex-row md:items-center md:justify-between md:px-6">
         <div>
           <Heading>Competitor Prices</Heading>
           <Text size="small" className="text-ui-fg-subtle">
@@ -86,17 +86,17 @@ const CompetitorPricesPage = () => {
           placeholder="Search product / SKU / competitor…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="md:w-72"
+          className="w-full md:w-72"
         />
       </div>
 
       {isLoading && (
-        <div className="px-6 py-6">
+        <div className="px-4 py-6 md:px-6">
           <Text size="small">Loading…</Text>
         </div>
       )}
       {!isLoading && groups.length === 0 && (
-        <div className="px-6 py-6">
+        <div className="px-4 py-6 md:px-6">
           <Text size="small" className="text-ui-fg-subtle">
             No competitor mappings yet.
           </Text>
@@ -115,43 +115,43 @@ const ProductGroup = ({ group }: { group: Group }) => {
   const title = product?.title ?? rows[0]?.title ?? group.product_id
   const sku = product?.sku ?? rows[0]?.product_sku
   return (
-    <div className="px-6 py-4">
-      {/* Heading: our product + our price (shown once per group) */}
-      <div className="mb-3 flex items-center justify-between gap-x-4">
-        <div className="flex items-center gap-x-2">
-          <Text weight="plus">{title}</Text>
-          {sku ? <Badge size="2xsmall">{sku}</Badge> : null}
-          <Text size="small" className="text-ui-fg-subtle">
-            {rows.length} competitor{rows.length === 1 ? "" : "s"}
+    <div className="px-4 py-4 md:px-6">
+      {/* Heading: our product + our price, wraps cleanly on mobile */}
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+          <Text weight="plus" className="truncate">
+            {title}
           </Text>
+          {sku ? <Badge size="2xsmall">{sku}</Badge> : null}
         </div>
-        <div className="text-right">
+        <div className="flex items-baseline gap-x-1.5 whitespace-nowrap">
           <Text size="xsmall" className="text-ui-fg-muted">
             Our price
           </Text>
           <Text weight="plus">{money(ourPrice)}</Text>
         </div>
       </div>
+      <Text size="xsmall" className="text-ui-fg-subtle">
+        {rows.length} competitor{rows.length === 1 ? "" : "s"}
+      </Text>
 
-      <Table>
-        <Table.Header>
-          <Table.Row>
-            <Table.HeaderCell>Competitor</Table.HeaderCell>
-            <Table.HeaderCell>Listing</Table.HeaderCell>
-            <Table.HeaderCell>Match</Table.HeaderCell>
-            <Table.HeaderCell>Price (unit)</Table.HeaderCell>
-            <Table.HeaderCell>Δ vs us</Table.HeaderCell>
-            <Table.HeaderCell>Status</Table.HeaderCell>
-          </Table.Row>
-        </Table.Header>
-        <Table.Body>
-          {rows.map((r) => (
+      <div className="mt-2">
+        {rows
+          .slice()
+          .sort((a, b) => deltaOf(a, ourPrice) - deltaOf(b, ourPrice))
+          .map((r) => (
             <CompetitorRow key={r.id} row={r} ourPrice={ourPrice} />
           ))}
-        </Table.Body>
-      </Table>
+      </div>
     </div>
   )
+}
+
+const deltaOf = (r: Row, ourPrice: number | null): number => {
+  const lp = r.latest_price
+  const comp = lp?.status === "ok" ? lp.unit_price ?? lp.price ?? null : null
+  if (comp == null || !ourPrice) return Number.POSITIVE_INFINITY
+  return ((comp - ourPrice) / ourPrice) * 100
 }
 
 const CompetitorRow = ({ row, ourPrice }: { row: Row; ourPrice: number | null }) => {
@@ -159,53 +159,60 @@ const CompetitorRow = ({ row, ourPrice }: { row: Row; ourPrice: number | null })
   const comp = lp?.status === "ok" ? lp.unit_price ?? lp.price ?? null : null
   const d = comp != null && ourPrice ? ((comp - ourPrice) / ourPrice) * 100 : null
   return (
-    <Table.Row>
-      <Table.Cell>{row.competitor?.name ?? "—"}</Table.Cell>
-      <Table.Cell className="max-w-[260px] truncate">
+    <div className="flex items-center justify-between gap-x-3 border-t border-ui-border-base py-2 first:border-t-0">
+      {/* Left: competitor + listing (shrinks/truncates on mobile) */}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-x-1.5">
+          <Text size="small" weight="plus" className="truncate">
+            {row.competitor?.name ?? "—"}
+          </Text>
+          <Badge size="2xsmall" className="shrink-0">
+            {row.match_status}
+            {row.match_score != null ? ` ${row.match_score}` : ""}
+          </Badge>
+        </div>
         {row.competitor_url ? (
-          <a href={row.competitor_url} target="_blank" rel="noreferrer" className="text-ui-fg-interactive">
+          <a
+            href={row.competitor_url}
+            target="_blank"
+            rel="noreferrer"
+            className="text-ui-fg-interactive line-clamp-1 text-xs"
+          >
             {row.title || row.competitor_url}
           </a>
         ) : (
-          row.title || "—"
+          <Text size="xsmall" className="text-ui-fg-subtle line-clamp-1">
+            {row.title || "—"}
+          </Text>
         )}
-        {row.pack_label ? (
-          <Text size="xsmall" className="text-ui-fg-muted">
-            {row.pack_label}
+        {row.last_error && comp == null ? (
+          <Text size="xsmall" className="text-ui-fg-error line-clamp-1">
+            {row.last_error}
           </Text>
         ) : null}
-      </Table.Cell>
-      <Table.Cell>
-        <Badge size="2xsmall">
-          {row.match_status}
-          {row.match_score != null ? ` ${row.match_score}` : ""}
-        </Badge>
-      </Table.Cell>
-      <Table.Cell>{money(comp, lp?.currency_code)}</Table.Cell>
-      <Table.Cell>
+      </div>
+
+      {/* Right: price + Δ (fixed, never wraps) */}
+      <div className="shrink-0 text-right">
+        <Text size="small" weight="plus">
+          {money(comp, lp?.currency_code)}
+        </Text>
         {d == null ? (
-          "—"
+          <Text size="xsmall" className="text-ui-fg-muted">
+            {row.pack_label ?? "—"}
+          </Text>
         ) : (
-          <Text size="small" className={d > 0 ? "text-ui-tag-green-text" : "text-ui-tag-red-text"}>
+          <Text
+            size="xsmall"
+            weight="plus"
+            className={d > 0 ? "text-ui-tag-green-text" : "text-ui-tag-red-text"}
+          >
             {d > 0 ? "+" : ""}
             {d.toFixed(0)}%
           </Text>
         )}
-      </Table.Cell>
-      <Table.Cell>
-        {lp?.scraped_at ? (
-          <Text size="xsmall" className="text-ui-fg-subtle">
-            {new Date(lp.scraped_at).toLocaleDateString()}
-          </Text>
-        ) : row.last_error ? (
-          <Text size="xsmall" className="text-ui-fg-error line-clamp-1">
-            {row.last_error}
-          </Text>
-        ) : (
-          "—"
-        )}
-      </Table.Cell>
-    </Table.Row>
+      </div>
+    </div>
   )
 }
 
