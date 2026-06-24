@@ -17,6 +17,7 @@ import { GET as parserIssuesGET } from "../competitor-prices/discovery/parser-is
 import { POST as fixParserPOST } from "../competitor-prices/discovery/fix-parser/route"
 import { GET as catBatchGET } from "../competitor-prices/discovery/catalog/next-batch/route"
 import { POST as catSubmitPOST } from "../competitor-prices/discovery/catalog/submit/route"
+import { GET as gapsGET } from "../competitor-prices/gaps/route"
 import { runCompetitorMatch } from "../../../workflows/competitor-prices/match"
 import { runCompetitorScrape } from "../../../workflows/competitor-prices/scrape"
 import { runCatalogDiscovery } from "../../../workflows/competitor-prices/discovery-catalog"
@@ -381,5 +382,63 @@ describe("catalog (reverse) discovery routes", () => {
     await catSubmitPOST(makeReq(svc, { competitor_id: "c1", listings: [{ url: "https://h/p" }] }) as any, res)
     expect(runCompetitorMatch).not.toHaveBeenCalled()
     expect(res.json.mock.calls[0][0]).toMatchObject({ created: 0, matched: 0 })
+  })
+})
+
+describe("competitor-prices gaps route", () => {
+  const cpReq = (svc: any, query: any, q: any = {}) => ({
+    scope: { resolve: (n: string) => (n === "query" ? query : svc) },
+    body: {},
+    query: q,
+  })
+
+  const gapsSvcQuery = () => ({
+    svc: {
+      listCompetitorProducts: jest.fn().mockResolvedValue([
+        { product_id: "p1", title: "Rival (10L)", prices: [{ price: 8000, scraped_at: "2024-02-01" }] },
+      ]),
+    },
+    query: {
+      graph: jest
+        .fn()
+        .mockResolvedValueOnce({
+          data: [{ id: "p1", title: "Our (10L)", variants: [{ id: "v1", sku: "S1", calculated_price: { calculated_amount: 100 } }] }],
+        })
+        .mockResolvedValueOnce({
+          data: [
+            { title: "Moloni PVP2", prices: [{ amount: 120, currency_code: "eur", price_set: { variant: { id: "v1" } } }] },
+            { title: "Moloni Cost", prices: [{ amount: 50, currency_code: "eur", price_set: { variant: { id: "v1" } } }] },
+          ],
+        }),
+    },
+  })
+
+  it("GET /admin/competitor-prices/gaps computes the €/L market position", async () => {
+    const { svc, query } = gapsSvcQuery()
+    const res = makeRes()
+    await gapsGET(cpReq(svc, query) as any, res)
+    expect(svc.listCompetitorProducts).toHaveBeenCalledWith(
+      { match_status: ["confirmed", "fuzzy"] },
+      expect.objectContaining({ relations: ["prices"] })
+    )
+    const payload = res.json.mock.calls[0][0]
+    expect(payload.count).toBe(1)
+    // our PVP2 €/L = 1200, competitor "Rival (10L)" @ 8000 → 800/L → we're above market
+    expect(payload.gaps[0]).toMatchObject({
+      product_id: "p1",
+      base_unit: "L",
+      our_unit_price: 1200,
+      position: "above",
+      competitor: { count: 1, min: 800, median: 800, max: 800 },
+      vs_median_pct: 50,
+      below_cost: false,
+    })
+  })
+
+  it("?position filters the rows", async () => {
+    const { svc, query } = gapsSvcQuery()
+    const res = makeRes()
+    await gapsGET(cpReq(svc, query, { position: "below" }) as any, res)
+    expect(res.json.mock.calls[0][0]).toMatchObject({ count: 0, gaps: [] })
   })
 })
