@@ -17,6 +17,10 @@ export const ProductWatch = model
     discovery_interval_seconds: model.number().nullable(),
     last_discovery_at: model.dateTime().nullable(),
     next_discovery_at: model.dateTime().nullable(),
+    // Consecutive discovery passes that found NO competitor anywhere. Drives
+    // exponential back-off and eventual retirement — this is how "own-label /
+    // no-competitor" products are identified: by outcome, not by name-guessing.
+    consecutive_misses: model.number().default(0),
     is_active: model.boolean().default(true),
     metadata: model.json().nullable(),
   })

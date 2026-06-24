@@ -85,6 +85,8 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     else skipped++
   }
 
-  await svc.markProductDiscovered(watch)
+  // A submit that produced at least one mapping is a hit (resets miss backoff);
+  // listings that all failed to map count as a miss like a skip.
+  await svc.markProductDiscovered(watch, { found: created > 0 })
   res.json({ watch_id: watch.id, product_id: watch.product_id, created, skipped })
 }

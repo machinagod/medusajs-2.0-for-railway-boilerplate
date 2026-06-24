@@ -231,7 +231,8 @@ describe("discovery queue routes", () => {
     )
     expect(svc.ensureCompetitor).toHaveBeenCalledTimes(1)
     expect(svc.upsertDiscoveredMapping).toHaveBeenCalledWith("c1", expect.objectContaining({ url: "http://x/p", confidence: 88 }), "p1")
-    expect(svc.markProductDiscovered).toHaveBeenCalled()
+    // created>0 → marked as a hit (resets the miss back-off)
+    expect(svc.markProductDiscovered).toHaveBeenCalledWith({ id: "w1", product_id: "p1" }, { found: true })
     expect(res.json.mock.calls[0][0]).toMatchObject({ created: 1, skipped: 1 })
   })
 
@@ -242,15 +243,15 @@ describe("discovery queue routes", () => {
     expect(res.status).toHaveBeenCalledWith(404)
   })
 
-  it("POST /discovery/skip marks the watch discovered", async () => {
+  it("POST /discovery/skip marks the watch a miss and surfaces retire state", async () => {
     const svc = {
       listProductWatches: jest.fn().mockResolvedValue([{ id: "w1" }]),
-      markProductDiscovered: jest.fn().mockResolvedValue(undefined),
+      markProductDiscovered: jest.fn().mockResolvedValue({ misses: 3, retired: true }),
     }
     const res = makeRes()
     await dqSkipPOST(makeReq(svc, { watch_id: "w1" }) as any, res)
-    expect(svc.markProductDiscovered).toHaveBeenCalled()
-    expect(res.json.mock.calls[0][0]).toMatchObject({ skipped: true })
+    expect(svc.markProductDiscovered).toHaveBeenCalledWith({ id: "w1" }, { found: false })
+    expect(res.json.mock.calls[0][0]).toMatchObject({ skipped: true, consecutive_misses: 3, retired: true })
   })
 
   it("POST /discovery/skip 404s when unknown", async () => {
