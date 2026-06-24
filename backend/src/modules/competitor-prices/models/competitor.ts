@@ -14,6 +14,10 @@ export const Competitor = model
     base_url: model.text().nullable(),
     country: model.text().nullable(), // ISO-ish market code, e.g. PT / ES
     scraper_key: model.text().default("generic-jsonld"),
+    // Deterministic parser recipe for this site (reused across all its mappings).
+    // For `config-selectors`: a CSS-selector spec { price, attr?, title?, ... };
+    // null when `generic-jsonld`/`prestashop` handles the site out of the box.
+    scraper_hints: model.json().nullable(),
     is_active: model.boolean().default(true),
     // Competitor-level default refresh interval (seconds).
     refresh_interval_seconds: model.number().nullable(),

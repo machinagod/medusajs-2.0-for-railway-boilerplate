@@ -32,12 +32,18 @@ const makeReq = (svc: any, body: any = {}, query: any = {}) => ({
 describe("admin routes", () => {
   it("GET/POST /admin/competitors", async () => {
     const svc = {
-      listCompetitors: jest.fn().mockResolvedValue([{ id: "c" }]),
+      listCompetitors: jest.fn().mockResolvedValue([{ id: "c" }, { id: "c2" }]),
+      listCompetitorProducts: jest.fn().mockResolvedValue([
+        { competitor_id: "c", prices: [{ status: "ok", price: 100 }] },
+        { competitor_id: "c", prices: [] },
+      ]),
       createCompetitors: jest.fn().mockResolvedValue({ id: "new" }),
     }
     const res1 = makeRes()
     await competitorsGET(makeReq(svc) as any, res1)
-    expect(res1.json).toHaveBeenCalledWith({ competitors: [{ id: "c" }] })
+    const out = res1.json.mock.calls[0][0].competitors
+    expect(out[0]).toMatchObject({ id: "c", mapping_count: 2, priced_count: 1 })
+    expect(out[1]).toMatchObject({ id: "c2", mapping_count: 0, priced_count: 0 })
 
     const res2 = makeRes()
     await competitorsPOST(makeReq(svc, { name: "X", handle: "x" }) as any, res2)

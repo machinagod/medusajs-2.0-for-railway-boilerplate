@@ -49,7 +49,8 @@ export async function runCompetitorScrape(
       competitorProductId: m.id,
       scraperKey:
         m.scraper_key ?? m.competitor?.scraper_key ?? DEFAULT_SCRAPER_KEY,
-      hints: m.metadata?.scraper_hints,
+      // Per-mapping override → the competitor's reusable parser recipe.
+      hints: m.metadata?.scraper_hints ?? m.competitor?.scraper_hints,
     }))
 
   const report: ScrapeReport = {
