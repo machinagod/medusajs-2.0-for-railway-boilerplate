@@ -18,6 +18,7 @@ import { POST as fixParserPOST } from "../competitor-prices/discovery/fix-parser
 import { GET as catBatchGET } from "../competitor-prices/discovery/catalog/next-batch/route"
 import { POST as catSubmitPOST } from "../competitor-prices/discovery/catalog/submit/route"
 import { GET as gapsGET } from "../competitor-prices/gaps/route"
+import { GET as historyGET } from "../competitor-prices/price-history/route"
 import { runCompetitorMatch } from "../../../workflows/competitor-prices/match"
 import { runCompetitorScrape } from "../../../workflows/competitor-prices/scrape"
 import { runCatalogDiscovery } from "../../../workflows/competitor-prices/discovery-catalog"
@@ -440,5 +441,48 @@ describe("competitor-prices gaps route", () => {
     const res = makeRes()
     await gapsGET(cpReq(svc, query, { position: "below" }) as any, res)
     expect(res.json.mock.calls[0][0]).toMatchObject({ count: 0, gaps: [] })
+  })
+})
+
+describe("competitor-prices price-history route", () => {
+  it("GET /admin/competitor-prices/price-history returns ours + market series", async () => {
+    const svc = {
+      listProductPriceHistories: jest.fn().mockResolvedValue([
+        { product_id: "p1", captured_at: "2024-01-01", pvp2: 7000, pvp1: 8000 },
+        { product_id: "p1", captured_at: "2024-02-01", pvp2: null, pvp1: 8100 }, // pvp1 fallback
+      ]),
+      listCompetitorProducts: jest.fn().mockResolvedValue([
+        { product_id: "p1", prices: [
+          { unit_price: 6800, scraped_at: "2024-01-15" },
+          { unit_price: null, scraped_at: "2024-01-16" }, // skipped
+        ] },
+        { product_id: null, prices: [{ unit_price: 100, scraped_at: "x" }] }, // no product → skipped
+      ]),
+    }
+    const res = makeRes()
+    await historyGET({ scope: { resolve: () => svc }, query: { product_ids: "p1" } } as any, res)
+    expect(svc.listProductPriceHistories).toHaveBeenCalledWith({ product_id: ["p1"] }, expect.anything())
+    const payload = res.json.mock.calls[0][0]
+    expect(payload.count).toBe(1)
+    expect(payload.history.p1.ours).toEqual([
+      [new Date("2024-01-01").getTime(), 7000],
+      [new Date("2024-02-01").getTime(), 8100],
+    ])
+    expect(payload.history.p1.market).toEqual([[new Date("2024-01-15").getTime(), 6800]])
+  })
+
+  it("defaults to matched mappings when no ids are given", async () => {
+    const svc = {
+      listProductPriceHistories: jest.fn().mockResolvedValue([]),
+      listCompetitorProducts: jest.fn().mockResolvedValue([]),
+    }
+    const res = makeRes()
+    await historyGET({ scope: { resolve: () => svc }, query: {} } as any, res)
+    expect(svc.listProductPriceHistories).toHaveBeenCalledWith({}, expect.anything())
+    expect(svc.listCompetitorProducts).toHaveBeenCalledWith(
+      { match_status: ["confirmed", "fuzzy"] },
+      expect.objectContaining({ relations: ["prices"] })
+    )
+    expect(res.json.mock.calls[0][0]).toMatchObject({ count: 0 })
   })
 })

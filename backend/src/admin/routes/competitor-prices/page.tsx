@@ -79,6 +79,15 @@ const CompetitorPricesPage = () => {
       ),
   })
 
+  const { data: hist } = useQuery({
+    queryKey: ["competitor-price-history"],
+    queryFn: () =>
+      sdk.client.fetch<{ history: Record<string, { ours: [number, number][]; market: [number, number][] }> }>(
+        "/admin/competitor-prices/price-history",
+        { method: "GET" }
+      ),
+  })
+
   const groups = useMemo<Group[]>(() => {
     const rows = data?.competitor_products ?? []
     const products = data?.products ?? {}
@@ -137,13 +146,53 @@ const CompetitorPricesPage = () => {
       )}
 
       {groups.map((g) => (
-        <ProductGroup key={g.product_id} group={g} />
+        <ProductGroup key={g.product_id} group={g} series={hist?.history?.[g.product_id]} />
       ))}
     </Container>
   )
 }
 
-const ProductGroup = ({ group }: { group: Group }) => {
+type Point = [number, number] // [timestamp ms, minor units]
+type Series = { ours: Point[]; market: Point[] }
+
+/**
+ * Tiny inline price-evolution sparkline: our price (ink line/dot) vs the
+ * competitor per-unit observations (faint red) — comparable units, same scale.
+ */
+const Sparkline = ({ series, w = 132, h = 28 }: { series?: Series; w?: number; h?: number }) => {
+  const ours = series?.ours ?? []
+  const market = series?.market ?? []
+  const all = [...ours, ...market]
+  if (all.length === 0) return null
+  const xs = all.map((p) => p[0])
+  const ys = all.map((p) => p[1])
+  const minX = Math.min(...xs)
+  const maxX = Math.max(...xs)
+  const minY = Math.min(...ys)
+  const maxY = Math.max(...ys)
+  const pad = 2
+  const sx = (t: number) => (maxX === minX ? w / 2 : pad + ((t - minX) / (maxX - minX)) * (w - 2 * pad))
+  const sy = (v: number) => (maxY === minY ? h / 2 : h - pad - ((v - minY) / (maxY - minY)) * (h - 2 * pad))
+  const line = (pts: Point[]) =>
+    pts.map((p, i) => `${i ? "L" : "M"}${sx(p[0]).toFixed(1)},${sy(p[1]).toFixed(1)}`).join(" ")
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-label="price history">
+      {market.length > 1 ? (
+        <path d={line(market)} fill="none" stroke="#e11d48" strokeWidth={1} opacity={0.45} />
+      ) : null}
+      {market.map((p, i) => (
+        <circle key={`m${i}`} cx={sx(p[0])} cy={sy(p[1])} r={1} fill="#e11d48" opacity={0.5} />
+      ))}
+      {ours.length > 1 ? (
+        <path d={line(ours)} fill="none" stroke="currentColor" strokeWidth={1.25} />
+      ) : (
+        ours.map((p, i) => <circle key={`o${i}`} cx={sx(p[0])} cy={sy(p[1])} r={1.6} fill="currentColor" />)
+      )}
+    </svg>
+  )
+}
+
+const ProductGroup = ({ group, series }: { group: Group; series?: Series }) => {
   const { product, rows, ourPrice } = group
   const title = product?.title ?? rows[0]?.title ?? group.product_id
   const sku = product?.sku ?? rows[0]?.product_sku
@@ -163,9 +212,12 @@ const ProductGroup = ({ group }: { group: Group }) => {
           <PriceTag label="Cost" value={product?.cost} muted />
         </div>
       </div>
-      <Text size="xsmall" className="text-ui-fg-subtle">
-        {rows.length} competitor{rows.length === 1 ? "" : "s"} · Δ vs {product?.pvp2 != null ? "PVP2" : "PVP1"}
-      </Text>
+      <div className="flex items-center justify-between gap-2">
+        <Text size="xsmall" className="text-ui-fg-subtle">
+          {rows.length} competitor{rows.length === 1 ? "" : "s"} · Δ vs {product?.pvp2 != null ? "PVP2" : "PVP1"}
+        </Text>
+        <Sparkline series={series} />
+      </div>
 
       <div className="mt-2">
         {rows
