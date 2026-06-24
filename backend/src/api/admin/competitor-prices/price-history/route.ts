@@ -1,5 +1,8 @@
 import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { COMPETITOR_PRICES_MODULE } from "../../../../modules/competitor-prices"
+import { convertTaxBasis } from "../../../../modules/competitor-prices/normalize"
+
+const DEFAULT_VAT = 0.23 // sparkline-level normalisation; the gap view uses each product's exact VAT
 
 type Point = [number, number] // [timestamp ms, minor units]
 
@@ -28,17 +31,17 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
     if (v != null) bucket(s.product_id).ours.push([+new Date(s.captured_at), v])
   }
 
-  // ── Competitor observations (per-our-unit, comparable to ours) ──
+  // ── Competitor observations (per-our-unit), normalised to our net basis ──
   const mappings = await svc.listCompetitorProducts(
     ids ? { product_id: ids } : { match_status: ["confirmed", "fuzzy"] },
-    { relations: ["prices"], take: 5000 }
+    { relations: ["prices", "competitor"], take: 5000 }
   )
   for (const m of mappings) {
     if (!m.product_id) continue
+    const basis = m.competitor?.price_tax_basis ?? null
     for (const p of m.prices ?? []) {
-      if (p.unit_price != null) {
-        bucket(m.product_id).market.push([+new Date(p.scraped_at), p.unit_price])
-      }
+      const v = convertTaxBasis(p.unit_price, basis, "excl", DEFAULT_VAT)
+      if (v != null) bucket(m.product_id).market.push([+new Date(p.scraped_at), v])
     }
   }
 

@@ -21,7 +21,7 @@ all the data and runs the deterministic scrapers.
 **Forward queue (product-anchored — our product → find it at competitors):**
 
 1. `competitor_discovery_next_batch({ limit?, force? })` → `{ count, watches:[{watch_id, product_id, sku, title, brand, ean}], competitors:[{handle,name,base_url,country,scraper_key}] }`
-2. `competitor_discovery_submit({ watch_id, listings:[{competitor_handle, url, confidence, competitor_name?, competitor_base_url?, competitor_country?, competitor_scraper_key?, competitor_scraper_hints?, is_new_competitor?, title?, brand?, sku?, ean?}] })`
+2. `competitor_discovery_submit({ watch_id, listings:[{competitor_handle, url, confidence, competitor_name?, competitor_base_url?, competitor_country?, competitor_price_tax_basis?, competitor_scraper_key?, competitor_scraper_hints?, is_new_competitor?, title?, brand?, sku?, ean?}] })`
 3. `competitor_discovery_skip({ watch_id })` — nothing qualified
 4. `competitor_discovery_stats()` — queue health
 5. `competitor_discovery_scrape({ force? })` — kick a price scrape after submitting
@@ -102,6 +102,28 @@ a listing is on:
 public price verified but size shown via a multi-size selector (slight
 ambiguity); never submit > 80 if you did not actually see the price.
 
+## ⚖️ Tax basis — WITH or WITHOUT VAT (your responsibility)
+
+Our prices are **net (ex-VAT)**. A competitor that lists **incl-VAT** prices looks
+~23% dearer than it is unless we know — so for every store, **determine and record
+its price tax basis** with `competitor_price_tax_basis`:
+
+- `"excl"` — prices shown **without** VAT: *"S/IVA", "sem IVA", "+IVA", "IVA não
+  incluído", "preço sem IVA", "(IVA não incl.)"*. Common on B2B distributors.
+- `"incl"` — prices shown **with** VAT: *"c/IVA", "com IVA", "IVA incluído",
+  "preços com IVA", "IVA incl."*. Common on B2C / retail.
+
+**When the page shows BOTH prices** (e.g. `S/IVA: 36,28€ · c/IVA: 44,62€`) — common
+on B2B sites — **target the EX-VAT one** (it matches our net basis, no conversion),
+set `competitor_price_tax_basis:"excl"`, and point the parser's `price` selector at
+that specific element (read the HTML: the S/IVA span vs the c/IVA span have
+different classes — pick the S/IVA one; never let `generic-jsonld` guess when both
+are present, use `config-selectors` with the verified ex-VAT selector).
+
+If you genuinely can't tell, omit the field (the backend leaves it unknown rather
+than mis-normalising). Set it once per store; it's reused for all its products and
+backfills an existing store that lacked it.
+
 ## Discovering NEW stores (grow the competitor set)
 
 If your research surfaces a store that is **NOT** in the competitor list but
@@ -112,7 +134,7 @@ recipe** (above) so the scheduled scraper can read it — and the submit endpoin
 creates the competitor (flagged `discovered` for review) with that parser config:
 
 ```json
-{"competitor_handle":"newstore-pt","competitor_name":"New Store","competitor_base_url":"https://newstore.pt","competitor_country":"PT","is_new_competitor":true,"competitor_scraper_key":"generic-jsonld","url":"https://newstore.pt/...","title":"…","confidence":90}
+{"competitor_handle":"newstore-pt","competitor_name":"New Store","competitor_base_url":"https://newstore.pt","competitor_country":"PT","competitor_price_tax_basis":"excl","is_new_competitor":true,"competitor_scraper_key":"generic-jsonld","url":"https://newstore.pt/...","title":"…","confidence":90}
 ```
 
 If the new store needs CSS selectors, add the recipe:

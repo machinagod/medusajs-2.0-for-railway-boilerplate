@@ -47,6 +47,27 @@ export function unitPriceMinor(
   return Math.round(priceMinor / measure.qty)
 }
 
+export type TaxBasis = "incl" | "excl"
+
+/**
+ * Convert a price (minor units) between VAT bases so two prices are compared on
+ * the same footing. `vatRate` is a fraction (0.23 for 23%). Same basis → no-op.
+ * Our own prices are net (ex-VAT, from Moloni); a competitor showing incl-VAT
+ * prices must be divided down to net before comparison, else it looks ~23% off.
+ */
+export function convertTaxBasis(
+  priceMinor: number | null | undefined,
+  from: TaxBasis | null | undefined,
+  to: TaxBasis,
+  vatRate: number
+): number | null {
+  if (priceMinor == null) return null
+  if (!from || from === to || !vatRate) return priceMinor
+  return from === "incl"
+    ? Math.round(priceMinor / (1 + vatRate)) // gross → net
+    : Math.round(priceMinor * (1 + vatRate)) // net → gross
+}
+
 export type NormalizedPrice = {
   base_unit: BaseUnit
   qty: number

@@ -6,6 +6,7 @@ interface SubmitListing {
   competitor_name?: string
   competitor_base_url?: string
   competitor_country?: string // PT/ES — set for newly-discovered stores
+  competitor_price_tax_basis?: string // "incl" | "excl" — does the store list prices with VAT?
   is_new_competitor?: boolean // worker flags a store not in our set
   // Parser recipe for a NEW store (reused for all its mappings): the scraper to
   // use, and CSS-selector hints when generic-jsonld can't read the price.
@@ -64,6 +65,8 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
       country: l.competitor_country,
       scraper_key: l.competitor_scraper_key,
       scraper_hints: l.competitor_scraper_hints,
+      price_tax_basis: l.competitor_price_tax_basis, // "incl" | "excl" — the skill determined it from the page
+
       // A store the worker found that wasn't in our set is created (flagged
       // discovered) so it joins the watchlist for future scrapes/review.
       discovered: l.is_new_competitor,

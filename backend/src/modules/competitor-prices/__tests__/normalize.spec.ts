@@ -1,4 +1,19 @@
-import { parseMeasure, unitPriceMinor, normalizedUnitPrice } from "../normalize"
+import { parseMeasure, unitPriceMinor, normalizedUnitPrice, convertTaxBasis } from "../normalize"
+
+describe("convertTaxBasis", () => {
+  it("strips VAT (incl → excl) and adds it (excl → incl)", () => {
+    expect(convertTaxBasis(1230, "incl", "excl", 0.23)).toBe(1000)
+    expect(convertTaxBasis(1000, "excl", "incl", 0.23)).toBe(1230)
+  })
+  it("is a no-op for same basis, unknown from-basis, or zero VAT", () => {
+    expect(convertTaxBasis(1000, "excl", "excl", 0.23)).toBe(1000)
+    expect(convertTaxBasis(1000, null, "excl", 0.23)).toBe(1000)
+    expect(convertTaxBasis(1000, "incl", "excl", 0)).toBe(1000)
+  })
+  it("returns null for a null price", () => {
+    expect(convertTaxBasis(null, "incl", "excl", 0.23)).toBeNull()
+  })
+})
 
 describe("parseMeasure", () => {
   it("reduces volume to litres", () => {

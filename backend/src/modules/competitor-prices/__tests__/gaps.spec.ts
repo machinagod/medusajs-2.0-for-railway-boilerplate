@@ -5,7 +5,8 @@ const mk = (
   title: string,
   base_unit: any,
   pvp2_unit: number | null,
-  cost_unit: number | null
+  cost_unit: number | null,
+  vat: number | null = null
 ): OurPrice => ({
   title,
   sku: null,
@@ -17,6 +18,7 @@ const mk = (
   pvp1_unit: null,
   pvp2_unit,
   cost_unit,
+  vat,
 })
 
 describe("computeGaps", () => {
@@ -111,5 +113,16 @@ describe("computeGaps", () => {
       vs_min_pct: null,
       vs_median_pct: null,
     })
+  })
+
+  it("normalises an incl-VAT competitor to our net basis before comparing", () => {
+    const prods: Record<string, OurPrice> = { p_tax: mk("Tax (10L)", "L", 1000, null, 0.23) }
+    const maps = [
+      { product_id: "p_tax", title: "t (10L)", latest_price: { price: 12300 }, tax_basis: "incl" as const },
+    ]
+    const row = computeGaps(prods, maps)[0]
+    // 12300 ÷ 10L = 1230 incl-VAT → ÷1.23 = 1000 net, matching our 1000
+    expect(row.competitor).toMatchObject({ min: 1000, median: 1000, max: 1000 })
+    expect(row).toMatchObject({ position: "below", vs_min_pct: 0 })
   })
 })

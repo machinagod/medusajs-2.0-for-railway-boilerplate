@@ -1,5 +1,9 @@
-import { normalizedUnitPrice, type BaseUnit } from "./normalize"
+import { normalizedUnitPrice, convertTaxBasis, type BaseUnit, type TaxBasis } from "./normalize"
 import type { OurPrice } from "./pricing"
+
+/** Our prices are net (ex-VAT, from Moloni); competitors are normalised to this. */
+const OUR_TAX_BASIS: TaxBasis = "excl"
+const DEFAULT_VAT = 0.23
 
 /**
  * Competitiveness gap analysis — the €/L answer to "how are we priced vs the
@@ -15,6 +19,8 @@ export type GapMapping = {
   product_id?: string | null
   title?: string | null
   latest_price?: { price?: number | null } | null
+  /** The competitor's price basis ("incl"/"excl" VAT); null = unknown. */
+  tax_basis?: TaxBasis | null
 }
 
 export type MarketPosition = "below" | "at" | "above" | "unknown"
@@ -59,8 +65,16 @@ export function computeGaps(
     if (!p?.base_unit) continue // we can't compare without our own €/base
     const norm = normalizedUnitPrice(m.latest_price?.price, m.title)
     if (!norm || norm.unit_price == null || norm.base_unit !== p.base_unit) continue
+    // Normalise the competitor's €/base to OUR net basis before comparing, so a
+    // store showing incl-VAT prices isn't ~23% off vs our ex-VAT prices.
+    const adjusted = convertTaxBasis(
+      norm.unit_price,
+      m.tax_basis,
+      OUR_TAX_BASIS,
+      p.vat ?? DEFAULT_VAT
+    )!
     const list = byProduct.get(m.product_id) ?? []
-    list.push(norm.unit_price)
+    list.push(adjusted)
     byProduct.set(m.product_id, list)
   }
 

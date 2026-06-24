@@ -16,7 +16,7 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
 
   const mappings = await svc.listCompetitorProducts(
     { match_status: ["confirmed", "fuzzy"] },
-    { relations: ["prices"], take: 2000 }
+    { relations: ["prices", "competitor"], take: 2000 }
   )
 
   const items = mappings.map((m: any) => {
@@ -25,7 +25,12 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
         !acc || new Date(p.scraped_at) > new Date(acc.scraped_at) ? p : acc,
       null
     )
-    return { product_id: m.product_id, title: m.title, latest_price: latest }
+    return {
+      product_id: m.product_id,
+      title: m.title,
+      latest_price: latest,
+      tax_basis: m.competitor?.price_tax_basis ?? null,
+    }
   })
 
   const productIds = [

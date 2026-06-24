@@ -326,6 +326,27 @@ describe("discovery scheduling + upserts", () => {
     expect(await svc.ensureCompetitor({ handle: "h2", name: "N" })).toEqual({ id: "new" })
   })
 
+  it("ensureCompetitor records the tax basis on create and backfills it on existing", async () => {
+    const svc = makeSvc()
+    // new store → created with the basis
+    svc.listCompetitors.mockResolvedValueOnce([])
+    svc.createCompetitors.mockResolvedValueOnce({ id: "new" })
+    await svc.ensureCompetitor({ handle: "n", price_tax_basis: "excl" })
+    expect(svc.createCompetitors.mock.calls[0][0]).toMatchObject({ price_tax_basis: "excl" })
+
+    // existing store WITHOUT a basis + input has one → backfilled
+    svc.listCompetitors.mockResolvedValueOnce([{ id: "ex", price_tax_basis: null }])
+    const r = await svc.ensureCompetitor({ handle: "ex", price_tax_basis: "incl" })
+    expect(svc.updateCompetitors).toHaveBeenCalledWith({ id: "ex", price_tax_basis: "incl" })
+    expect(r.price_tax_basis).toBe("incl")
+
+    // existing store that already has a basis → left untouched
+    svc.updateCompetitors.mockClear()
+    svc.listCompetitors.mockResolvedValueOnce([{ id: "ex2", price_tax_basis: "excl" }])
+    await svc.ensureCompetitor({ handle: "ex2", price_tax_basis: "incl" })
+    expect(svc.updateCompetitors).not.toHaveBeenCalled()
+  })
+
   it("upsertDiscoveredMapping handles no-url / existing / confirmed / unmatched", async () => {
     const svc = makeSvc()
     expect(await svc.upsertDiscoveredMapping("c", {})).toBeNull()

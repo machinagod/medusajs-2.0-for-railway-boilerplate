@@ -13,6 +13,12 @@ export const Competitor = model
     handle: model.text(),
     base_url: model.text().nullable(),
     country: model.text().nullable(), // ISO-ish market code, e.g. PT / ES
+    // Whether this competitor's LISTED prices include VAT ("incl", typical B2C /
+    // "IVA incluído") or exclude it ("excl", typical B2B / "S/IVA", "+IVA"); null
+    // = unknown. The discovery skill determines this from the page so the gap
+    // comparison can normalise to our ex-VAT (net) basis instead of comparing a
+    // gross competitor price to our net one (~23% error). See the discovery skill.
+    price_tax_basis: model.text().nullable(), // "incl" | "excl" | null
     scraper_key: model.text().default("generic-jsonld"),
     // Deterministic parser recipe for this site (reused across all its mappings).
     // For `config-selectors`: a CSS-selector spec { price, attr?, title?, ... };

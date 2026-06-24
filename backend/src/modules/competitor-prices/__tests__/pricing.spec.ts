@@ -35,14 +35,14 @@ describe("readProductPrices", () => {
       graph: jest
         .fn()
         .mockResolvedValueOnce({
-          data: [{ id: "p9", title: "Jonclean 900 (10L)", variants: [{ id: "v9", sku: "S9", calculated_price: { calculated_amount: 82.17 } }] }],
+          data: [{ id: "p9", title: "Jonclean 900 (10L)", metadata: { moloni_vat_percent: 23 }, variants: [{ id: "v9", sku: "S9", calculated_price: { calculated_amount: 82.17 } }] }],
         })
         .mockResolvedValueOnce({
           data: [{ title: "Moloni Cost", prices: [{ amount: 50, currency_code: "eur", price_set: { variant: { id: "v9" } } }] }],
         }),
     }
     const out = await readProductPrices(query, ["p9"])
-    expect(out.p9).toMatchObject({ base_unit: "L", qty: 10, pvp1: 8217, pvp1_unit: 822, cost: 5000, cost_unit: 500, pvp2_unit: null })
+    expect(out.p9).toMatchObject({ base_unit: "L", qty: 10, pvp1: 8217, pvp1_unit: 822, cost: 5000, cost_unit: 500, pvp2_unit: null, vat: 0.23 })
   })
 
   it("falls back to first variant for PVP1, skips non-eur, and tolerates price-list failure", async () => {

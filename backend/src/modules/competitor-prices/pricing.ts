@@ -14,6 +14,9 @@ export type OurPrice = {
   pvp1_unit: number | null
   pvp2_unit: number | null
   cost_unit: number | null
+  // VAT rate as a fraction (e.g. 0.23), from Moloni; used to normalise a
+  // competitor's incl-VAT price to our net basis. Our prices are net (ex-VAT).
+  vat: number | null
 }
 
 const toMinor = (a: any): number | null =>
@@ -38,6 +41,7 @@ export async function readProductPrices(
       fields: [
         "id",
         "title",
+        "metadata",
         "variants.id",
         "variants.sku",
         "variants.calculated_price.calculated_amount",
@@ -62,6 +66,10 @@ export async function readProductPrices(
         pvp1_unit: null,
         pvp2_unit: null,
         cost_unit: null,
+        vat:
+          p.metadata?.moloni_vat_percent != null
+            ? Number(p.metadata.moloni_vat_percent) / 100
+            : null,
       }
       for (const vv of p.variants ?? []) if (vv.id) variantToProduct[vv.id] = p.id
     }

@@ -354,10 +354,19 @@ export default class CompetitorPricesModuleService extends MedusaService({
     country?: string
     scraper_key?: string
     scraper_hints?: Record<string, any> | null
+    price_tax_basis?: string | null
     discovered?: boolean
   }): Promise<any> {
     const [existing] = await this.listCompetitors({ handle: input.handle })
-    if (existing) return existing // reuse the site's existing parser config
+    if (existing) {
+      // Reuse the site's parser config; backfill the tax basis if the skill has
+      // now determined it and we didn't have it before.
+      if (input.price_tax_basis && !existing.price_tax_basis) {
+        await this.updateCompetitors({ id: existing.id, price_tax_basis: input.price_tax_basis })
+        existing.price_tax_basis = input.price_tax_basis
+      }
+      return existing
+    }
     // A brand-new store surfaced by discovery: store its parser recipe (generic
     // by default, or a config-selectors spec) and flag it for human review.
     return this.createCompetitors({
@@ -366,6 +375,7 @@ export default class CompetitorPricesModuleService extends MedusaService({
       base_url: input.base_url ?? undefined,
       country: input.country ?? undefined,
       scraper_key: input.scraper_key ?? "generic-jsonld",
+      ...(input.price_tax_basis ? { price_tax_basis: input.price_tax_basis } : {}),
       ...(input.scraper_hints ? { scraper_hints: input.scraper_hints } : {}),
       ...(input.discovered
         ? { metadata: { discovered: true, discovered_at: new Date().toISOString() } }

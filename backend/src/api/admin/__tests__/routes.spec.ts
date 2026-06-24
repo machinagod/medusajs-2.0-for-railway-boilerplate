@@ -420,7 +420,7 @@ describe("competitor-prices gaps route", () => {
     await gapsGET(cpReq(svc, query) as any, res)
     expect(svc.listCompetitorProducts).toHaveBeenCalledWith(
       { match_status: ["confirmed", "fuzzy"] },
-      expect.objectContaining({ relations: ["prices"] })
+      expect.objectContaining({ relations: ["prices", "competitor"] })
     )
     const payload = res.json.mock.calls[0][0]
     expect(payload.count).toBe(1)
@@ -481,7 +481,7 @@ describe("competitor-prices price-history route", () => {
     expect(svc.listProductPriceHistories).toHaveBeenCalledWith({}, expect.anything())
     expect(svc.listCompetitorProducts).toHaveBeenCalledWith(
       { match_status: ["confirmed", "fuzzy"] },
-      expect.objectContaining({ relations: ["prices"] })
+      expect.objectContaining({ relations: ["prices", "competitor"] })
     )
     expect(res.json.mock.calls[0][0]).toMatchObject({ count: 0 })
   })
