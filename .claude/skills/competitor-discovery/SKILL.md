@@ -32,20 +32,57 @@ TOK=$(curl -s -X POST "$BE/auth/user/emailpass" -H 'Content-Type: application/js
   | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.parse(s).token||''))")
 ```
 
+## Goal — find NEW price sources, then make them scrape themselves
+
+This expensive Claude pass exists to **discover new competitors / price sources**
+(not just re-check known ones) **and configure a deterministic parser for each**,
+so the backend's scheduled scraper retrieves prices forever with no LLM in the
+loop. **Do NOT restrict your search to our known competitors** — search the open
+web for any credible Iberian distributor selling the product.
+
 ## ⛔ Submission gate — a listing is eligible ONLY if ALL are true
 
-1. The `url` is a **product page** on one of OUR competitor `base_url` domains.
+1. The `url` is a **product page** on any credible **price source serving the
+   PT/ES market** — B2B distributors, **marketplaces** (Amazon/eBay), and
+   **manufacturer webshops** (e.g. `eshop.diversey.*`) are all fair game. Prefer
+   the `.es`/`.pt` locale of a marketplace. Use a descriptive `handle`
+   (`amazon-es`, `diversey-eshop`, …).
 2. You **opened it with `WebFetch`** and **saw a numeric EUR price shown WITHOUT
    login** — not a category/brand/PDF page, not a search result.
 3. The **pack size matches ours** (same litres / kg / count, accounting for
    multipliers: our `6x2L` = their `6x2L`/`12L`, NOT their single `2L`; our `4L`
    is NOT their `4x4L` case).
+4. You can describe **how a deterministic parser extracts the price** (see
+   "Parser recipe" below) — otherwise the scheduled scraper can't read it.
 
 If any is uncertain → **do NOT submit that listing.** Reject pages that show
 *login / registo / iniciar sessão / sob consulta / pedir preço / presupuesto /
 solicitar precio* or no price at all. **Never invent a URL or a price.** If a
 watch has zero eligible listings, `skip` it. A wrong/garbage match is worse than
 a skip — the absurd Δ it produces has to be cleaned up by hand.
+
+## Parser recipe (per competitor, reused — set once)
+
+The deterministic scraper needs to extract the price WITHOUT you. For each store
+a listing is on:
+
+- If the store is **already in our set** (its `handle` is in the `competitors`
+  list from next-batch) → **reuse its existing parser**; submit the listing with
+  just `competitor_handle` (omit the parser fields).
+- If the store is **NEW** → determine its recipe from the page you fetched and
+  include it on the listing (the backend stores it on the competitor, reused for
+  all its products):
+  - Price is in **JSON-LD** (`<script type="application/ld+json">` with an Offer
+    `price`) **or schema.org microdata** (`[itemprop="price"]`) **or a `<meta>`
+    price tag → `competitor_scraper_key: "generic-jsonld"`** (no hints needed).
+  - PrestaShop site with JSON-LD → `"prestashop"`.
+  - Price only in **custom HTML** (visible but not in structured data) →
+    `competitor_scraper_key: "config-selectors"` plus
+    `competitor_scraper_hints: { "price": "<CSS selector>", "attr": "text"|"content", "availability"?: "<sel>", "currency"?: "EUR" }`.
+    Pick a stable selector (a price class/id), and say whether the value is the
+    element's text or an attribute.
+  - If you can't find ANY reliable deterministic extraction → don't submit (the
+    scheduled scraper would just return not_found).
 
 **Confidence**: 95+ = verified exact product + size + public price; 85–94 =
 public price verified but size shown via a multi-size selector (slight
@@ -56,24 +93,32 @@ ambiguity); never submit > 80 if you did not actually see the price.
 If your research surfaces a store that is **NOT** in the competitor list but
 **(a)** publicly sells our product at a public EUR price and **(b)** is a real
 distributor that **serves Portugal or Spain**, treat it as a candidate to ADD.
-Include it as a normal listing plus these fields, and the submit endpoint will
-create the competitor (flagged `discovered` for human review) so it joins the
-watchlist:
+Include it as a normal listing plus these fields — including the **parser
+recipe** (above) so the scheduled scraper can read it — and the submit endpoint
+creates the competitor (flagged `discovered` for review) with that parser config:
 
 ```json
-{"competitor_handle":"newstore-pt","competitor_name":"New Store","competitor_base_url":"https://newstore.pt","competitor_country":"PT","is_new_competitor":true,"url":"https://newstore.pt/...","title":"…","confidence":90}
+{"competitor_handle":"newstore-pt","competitor_name":"New Store","competitor_base_url":"https://newstore.pt","competitor_country":"PT","is_new_competitor":true,"competitor_scraper_key":"generic-jsonld","url":"https://newstore.pt/...","title":"…","confidence":90}
 ```
 
-Be conservative: only credible PT/ES B2B cleaning/hygiene distributors (a real
-storefront, public prices, ships to PT/ES). NOT marketplaces (Amazon/eBay), NOT
-manufacturer eshops (diversey.*), NOT shops outside Iberia. `handle` = kebab-case
-+ `-pt`/`-es` suffix. When unsure, don't add — note it in your report instead.
+If the new store needs CSS selectors, add the recipe:
+`"competitor_scraper_key":"config-selectors","competitor_scraper_hints":{"price":".product-price","attr":"text","currency":"EUR"}`.
 
-## Site intel (saves fetches — current as of this writing, re-verify if stale)
+Add any credible source that serves the PT/ES market and shows a public EUR
+price: B2B distributors, marketplaces (Amazon/eBay `.es`/`.pt`), and manufacturer
+webshops (`eshop.diversey.*`) are all allowed. Require a real, stable product
+page (not a transient/3rd-party-seller offer that changes hourly) and a working
+parser recipe. `handle` = kebab-case (`-pt`/`-es`/`-eshop` suffix). When unsure,
+don't add — note it in your report instead.
 
-- **Public prices (target these):** `egi-pt` (richest — carries most of the
+## Site intel (known-good STARTING points — not a whitelist; keep finding new ones)
+
+- **Public prices (good first hits):** `egi-pt` (richest — carries most of the
   Diversey range), `hegisantos-pt` (Magento), `higienaroma-pt` (Magento),
-  `batoy-es` (PrestaShop), and `progelcone-pt` **/store/** pages.
+  `batoy-es` (PrestaShop), and `progelcone-pt` **/store/** pages. All of these
+  use `generic-jsonld`. **But the point is to find NEW Iberian distributors too**
+  — a Google/web search for the product name + "comprar"/"preço"/"precio" will
+  surface stores not in this list; vet + add them.
 - **GATED — skip, don't waste fetches:** `exaclean-pt`, `moreiracarneiro-pt`,
   mostly `lusohigin-pt`, `grupoapr-pt`, `csh-pt`, and progelcone-pt **/catalogo/**
   pages (the `/store/` variant of the same product is the public one).

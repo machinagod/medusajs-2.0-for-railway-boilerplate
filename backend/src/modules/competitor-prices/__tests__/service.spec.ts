@@ -321,14 +321,16 @@ describe("discovery scheduling + upserts", () => {
     await svc.ensureCompetitor({
       handle: "newstore-pt",
       country: "PT",
-      scraper_key: "prestashop",
+      scraper_key: "config-selectors",
+      scraper_hints: { price: ".price", attr: "text" },
       discovered: true,
     })
     expect(svc.createCompetitors).toHaveBeenCalledWith(
       expect.objectContaining({
         handle: "newstore-pt",
         country: "PT",
-        scraper_key: "prestashop",
+        scraper_key: "config-selectors",
+        scraper_hints: { price: ".price", attr: "text" },
         metadata: expect.objectContaining({ discovered: true }),
       })
     )

@@ -7,6 +7,10 @@ interface SubmitListing {
   competitor_base_url?: string
   competitor_country?: string // PT/ES — set for newly-discovered stores
   is_new_competitor?: boolean // worker flags a store not in our set
+  // Parser recipe for a NEW store (reused for all its mappings): the scraper to
+  // use, and CSS-selector hints when generic-jsonld can't read the price.
+  competitor_scraper_key?: string
+  competitor_scraper_hints?: Record<string, any> | null
   url: string
   title?: string
   brand?: string
@@ -58,6 +62,8 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
       name: l.competitor_name,
       base_url: l.competitor_base_url,
       country: l.competitor_country,
+      scraper_key: l.competitor_scraper_key,
+      scraper_hints: l.competitor_scraper_hints,
       // A store the worker found that wasn't in our set is created (flagged
       // discovered) so it joins the watchlist for future scrapes/review.
       discovered: l.is_new_competitor,
