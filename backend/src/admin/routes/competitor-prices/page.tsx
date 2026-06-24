@@ -26,10 +26,45 @@ type Row = {
   last_error?: string | null
   latest_price?: Price | null
 }
-type Product = { title: string; sku: string | null; our_price: number | null }
+type Product = {
+  title: string
+  sku: string | null
+  pvp1: number | null
+  pvp2: number | null
+  cost: number | null
+}
 
 const money = (minor?: number | null, cur = "EUR") =>
   minor == null ? "—" : `${(minor / 100).toFixed(2)} ${cur}`
+
+// Compare competitors against PVP2, falling back to PVP1 when PVP2 is absent.
+const deltaBasis = (p?: Product, fallback?: number | null): number | null =>
+  p?.pvp2 ?? p?.pvp1 ?? fallback ?? null
+
+const PriceTag = ({
+  label,
+  value,
+  strong,
+  muted,
+}: {
+  label: string
+  value?: number | null
+  strong?: boolean
+  muted?: boolean
+}) => (
+  <div className="text-right">
+    <Text size="xsmall" className="text-ui-fg-muted">
+      {label}
+    </Text>
+    <Text
+      size="small"
+      weight={strong ? "plus" : "regular"}
+      className={muted ? "text-ui-fg-subtle" : undefined}
+    >
+      {value == null ? "—" : `${(value / 100).toFixed(2)}`}
+    </Text>
+  </div>
+)
 
 type Group = { product_id: string; product?: Product; rows: Row[]; ourPrice: number | null }
 
@@ -55,11 +90,9 @@ const CompetitorPricesPage = () => {
     }
     let gs: Group[] = [...byProduct.entries()].map(([product_id, rs]) => {
       const product = products[product_id]
-      const ourPrice =
-        product?.our_price ??
-        rs.find((r) => r.latest_price?.our_price != null)?.latest_price?.our_price ??
-        null
-      return { product_id, product, rows: rs, ourPrice }
+      const fallback = rs.find((r) => r.latest_price?.our_price != null)?.latest_price
+        ?.our_price
+      return { product_id, product, rows: rs, ourPrice: deltaBasis(product, fallback) }
     })
     const q = search.trim().toLowerCase()
     if (q) {
@@ -124,15 +157,14 @@ const ProductGroup = ({ group }: { group: Group }) => {
           </Text>
           {sku ? <Badge size="2xsmall">{sku}</Badge> : null}
         </div>
-        <div className="flex items-baseline gap-x-1.5 whitespace-nowrap">
-          <Text size="xsmall" className="text-ui-fg-muted">
-            Our price
-          </Text>
-          <Text weight="plus">{money(ourPrice)}</Text>
+        <div className="flex items-baseline gap-x-3 whitespace-nowrap">
+          <PriceTag label="PVP1" value={product?.pvp1} />
+          <PriceTag label="PVP2" value={product?.pvp2} strong />
+          <PriceTag label="Cost" value={product?.cost} muted />
         </div>
       </div>
       <Text size="xsmall" className="text-ui-fg-subtle">
-        {rows.length} competitor{rows.length === 1 ? "" : "s"}
+        {rows.length} competitor{rows.length === 1 ? "" : "s"} · Δ vs {product?.pvp2 != null ? "PVP2" : "PVP1"}
       </Text>
 
       <div className="mt-2">
@@ -140,24 +172,50 @@ const ProductGroup = ({ group }: { group: Group }) => {
           .slice()
           .sort((a, b) => deltaOf(a, ourPrice) - deltaOf(b, ourPrice))
           .map((r) => (
-            <CompetitorRow key={r.id} row={r} ourPrice={ourPrice} />
+            <CompetitorRow
+              key={r.id}
+              row={r}
+              pvp1={product?.pvp1 ?? null}
+              pvp2={product?.pvp2 ?? null}
+            />
           ))}
       </div>
     </div>
   )
 }
 
-const deltaOf = (r: Row, ourPrice: number | null): number => {
+const compOf = (r: Row): number | null => {
   const lp = r.latest_price
-  const comp = lp?.status === "ok" ? lp.unit_price ?? lp.price ?? null : null
-  if (comp == null || !ourPrice) return Number.POSITIVE_INFINITY
-  return ((comp - ourPrice) / ourPrice) * 100
+  return lp?.status === "ok" ? lp.unit_price ?? lp.price ?? null : null
+}
+const deltaOf = (r: Row, basis: number | null): number => {
+  const comp = compOf(r)
+  if (comp == null || !basis) return Number.POSITIVE_INFINITY
+  return ((comp - basis) / basis) * 100
 }
 
-const CompetitorRow = ({ row, ourPrice }: { row: Row; ourPrice: number | null }) => {
+const DeltaTag = ({ label, comp, base }: { label: string; comp: number | null; base: number | null }) => {
+  if (comp == null || !base) return null
+  const d = ((comp - base) / base) * 100
+  return (
+    <Text size="xsmall" weight="plus" className={d > 0 ? "text-ui-tag-green-text" : "text-ui-tag-red-text"}>
+      {label} {d > 0 ? "+" : ""}
+      {d.toFixed(0)}%
+    </Text>
+  )
+}
+
+const CompetitorRow = ({
+  row,
+  pvp1,
+  pvp2,
+}: {
+  row: Row
+  pvp1: number | null
+  pvp2: number | null
+}) => {
   const lp = row.latest_price
-  const comp = lp?.status === "ok" ? lp.unit_price ?? lp.price ?? null : null
-  const d = comp != null && ourPrice ? ((comp - ourPrice) / ourPrice) * 100 : null
+  const comp = compOf(row)
   return (
     <div className="flex items-center justify-between gap-x-3 border-t border-ui-border-base py-2 first:border-t-0">
       {/* Left: competitor + listing (shrinks/truncates on mobile) */}
@@ -192,24 +250,20 @@ const CompetitorRow = ({ row, ourPrice }: { row: Row; ourPrice: number | null })
         ) : null}
       </div>
 
-      {/* Right: price + Δ (fixed, never wraps) */}
+      {/* Right: competitor price + Δ vs PVP1 and PVP2 (fixed, never wraps) */}
       <div className="shrink-0 text-right">
         <Text size="small" weight="plus">
           {money(comp, lp?.currency_code)}
         </Text>
-        {d == null ? (
+        {comp == null ? (
           <Text size="xsmall" className="text-ui-fg-muted">
             {row.pack_label ?? "—"}
           </Text>
         ) : (
-          <Text
-            size="xsmall"
-            weight="plus"
-            className={d > 0 ? "text-ui-tag-green-text" : "text-ui-tag-red-text"}
-          >
-            {d > 0 ? "+" : ""}
-            {d.toFixed(0)}%
-          </Text>
+          <div className="flex items-baseline justify-end gap-x-2">
+            <DeltaTag label="P1" comp={comp} base={pvp1} />
+            <DeltaTag label="P2" comp={comp} base={pvp2} />
+          </div>
         )}
       </div>
     </div>

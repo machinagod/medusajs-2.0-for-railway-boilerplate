@@ -80,6 +80,12 @@ const CompetitorsPage = () => {
   )
 }
 
+const flag = (country?: string | null): string => {
+  if (!country) return ""
+  const map: Record<string, string> = { PT: "🇵🇹", ES: "🇪🇸", FR: "🇫🇷", IT: "🇮🇹", GB: "🇬🇧", DE: "🇩🇪" }
+  return map[country.toUpperCase()] ?? country
+}
+
 const parserSummary = (c: Competitor): string => {
   if (c.scraper_key === "config-selectors") {
     const sel = c.scraper_hints?.price

@@ -79,8 +79,13 @@ a listing is on:
   - Price only in **custom HTML** (visible but not in structured data) →
     `competitor_scraper_key: "config-selectors"` plus
     `competitor_scraper_hints: { "price": "<CSS selector>", "attr": "text"|"content", "availability"?: "<sel>", "currency"?: "EUR" }`.
-    Pick a stable selector (a price class/id), and say whether the value is the
-    element's text or an attribute.
+    **VERIFY the selector — do NOT guess.** Read the fetched HTML, find the
+    element that actually wraps the price, and use its real class/id (e.g.
+    `<span class="price mr-1">111,16€</span>` → `"price"`, not a guessed
+    `".preco"`). Confirm that selector's text/attr yields the price. A selector
+    that doesn't match is worse than nothing — it produces 0 prices and has to be
+    repaired by hand. WooCommerce/Shopify usually emit JSON-LD → prefer
+    `generic-jsonld` for them rather than CSS.
   - If you can't find ANY reliable deterministic extraction → don't submit (the
     scheduled scraper would just return not_found).
 

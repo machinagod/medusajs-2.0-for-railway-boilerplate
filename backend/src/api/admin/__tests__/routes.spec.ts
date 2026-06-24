@@ -13,6 +13,8 @@ import { GET as dqBatchGET } from "../competitor-prices/discovery/next-batch/rou
 import { POST as dqSubmitPOST } from "../competitor-prices/discovery/submit/route"
 import { POST as dqSkipPOST } from "../competitor-prices/discovery/skip/route"
 import { GET as dqStatsGET } from "../competitor-prices/discovery/stats/route"
+import { GET as parserIssuesGET } from "../competitor-prices/discovery/parser-issues/route"
+import { POST as fixParserPOST } from "../competitor-prices/discovery/fix-parser/route"
 import { runCompetitorScrape } from "../../../workflows/competitor-prices/scrape"
 import { runCatalogDiscovery } from "../../../workflows/competitor-prices/discovery-catalog"
 import { runProductDiscovery } from "../../../workflows/competitor-prices/discovery-product"
@@ -68,9 +70,17 @@ describe("admin routes", () => {
       ]),
     }
     const query = {
-      graph: jest.fn().mockResolvedValue({
-        data: [{ id: "p1", title: "Our Prod", variants: [{ sku: "S1", calculated_price: { calculated_amount: 82.17 } }] }],
-      }),
+      graph: jest
+        .fn()
+        .mockResolvedValueOnce({
+          data: [{ id: "p1", title: "Our Prod", variants: [{ id: "v1", sku: "S1", calculated_price: { calculated_amount: 82.17 } }] }],
+        })
+        .mockResolvedValueOnce({
+          data: [
+            { id: "pl1", title: "Moloni PVP2", prices: [{ amount: 70, currency_code: "eur", price_set: { variant: { id: "v1" } } }] },
+            { id: "pl2", title: "Moloni Cost", prices: [{ amount: 55, currency_code: "eur", price_set: { variant: { id: "v1" } } }] },
+          ],
+        }),
     }
     const res = makeRes()
     await cpGET(cpReq(svc, query, { product_id: "p", competitor_id: "c", match_status: "confirmed" }) as any, res)
@@ -83,7 +93,7 @@ describe("admin routes", () => {
     expect(payload.competitor_products[0].latest_price.price).toBe(2)
     expect(payload.competitor_products[1].latest_price).toBeNull()
     expect(payload.competitor_products[0].prices).toBeUndefined()
-    expect(payload.products.p1).toMatchObject({ title: "Our Prod", sku: "S1", our_price: 8217 })
+    expect(payload.products.p1).toMatchObject({ title: "Our Prod", sku: "S1", pvp1: 8217, pvp2: 7000, cost: 5500 })
   })
 
   it("GET /admin/competitor-products tolerates a product-price lookup failure", async () => {
@@ -245,6 +255,48 @@ describe("discovery queue routes", () => {
     const res = makeRes()
     await dqSkipPOST(makeReq(svc, {}) as any, res)
     expect(res.status).toHaveBeenCalledWith(404)
+  })
+
+  it("GET /discovery/parser-issues flags competitors whose parser yields no prices", async () => {
+    const svc = {
+      listCompetitors: jest.fn().mockResolvedValue([
+        { id: "c1", handle: "broken", scraper_key: "config-selectors", scraper_hints: { price: ".x" } },
+        { id: "c2", handle: "working" },
+      ]),
+      listCompetitorProducts: jest.fn().mockResolvedValue([
+        { competitor_id: "c1", last_status: "not_found", last_error: "price not found", competitor_url: "http://b/1" },
+        { competitor_id: "c1", last_status: "error", last_error: "boom", competitor_url: "http://b/2" },
+        { competitor_id: "c2", last_status: "ok" },
+        { competitor_id: "c2", last_status: "not_found" }, // has a success → not an issue
+      ]),
+    }
+    const res = makeRes()
+    await parserIssuesGET(makeReq(svc) as any, res)
+    const out = res.json.mock.calls[0][0]
+    expect(out.count).toBe(1)
+    expect(out.issues[0]).toMatchObject({ competitor_handle: "broken", failing: 2 })
+    expect(out.issues[0].sample_failures.length).toBe(2)
+  })
+
+  it("POST /discovery/fix-parser updates the recipe (and 404s if unknown)", async () => {
+    const svc = {
+      listCompetitors: jest.fn().mockResolvedValue([{ id: "c1", handle: "broken" }]),
+      updateCompetitors: jest.fn().mockResolvedValue(undefined),
+    }
+    const res = makeRes()
+    await fixParserPOST(
+      makeReq(svc, { competitor_handle: "broken", scraper_key: "config-selectors", scraper_hints: { price: ".price" } }) as any,
+      res
+    )
+    expect(svc.updateCompetitors).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "c1", scraper_key: "config-selectors", scraper_hints: { price: ".price" } })
+    )
+    expect(res.json.mock.calls[0][0].updated).toEqual(expect.arrayContaining(["scraper_key", "scraper_hints"]))
+
+    const svc2 = { listCompetitors: jest.fn().mockResolvedValue([]) }
+    const res2 = makeRes()
+    await fixParserPOST(makeReq(svc2, { competitor_id: "nope" }) as any, res2)
+    expect(res2.status).toHaveBeenCalledWith(404)
   })
 
   it("GET /discovery/stats aggregates counts", async () => {
