@@ -254,10 +254,51 @@ describe("discovery scheduling + upserts", () => {
     expect(svc.updateCompetitors.mock.calls[1][0].next_catalog_discovery_at).toEqual(new Date(NOW + 3000 * 1000))
   })
 
-  it("markProductDiscovered uses the watch interval or global default", async () => {
+  it("markProductDiscovered defaults to a hit when called without options", async () => {
     const svc = makeSvc()
-    await svc.markProductDiscovered({ id: "w" })
+    const r = await svc.markProductDiscovered({ id: "w" })
+    expect(r).toEqual({ misses: 0, retired: false })
     expect(svc.updateProductWatches.mock.calls[0][0].next_discovery_at).toEqual(new Date(NOW + 5000 * 1000))
+  })
+
+  it("markProductDiscovered on a hit uses the base interval and resets misses", async () => {
+    const svc = makeSvc()
+    const r = await svc.markProductDiscovered({ id: "w", consecutive_misses: 2 }, { found: true })
+    expect(r).toEqual({ misses: 0, retired: false })
+    expect(svc.updateProductWatches.mock.calls[0][0]).toMatchObject({
+      next_discovery_at: new Date(NOW + 5000 * 1000),
+      consecutive_misses: 0,
+    })
+    expect(svc.updateProductWatches.mock.calls[0][0].is_active).toBeUndefined()
+  })
+
+  it("markProductDiscovered backs off exponentially on a miss", async () => {
+    const svc = makeSvc()
+    const r = await svc.markProductDiscovered({ id: "w", consecutive_misses: 1 }, { found: false })
+    expect(r).toEqual({ misses: 2, retired: false }) // 5000 × 4² = 80000s
+    expect(svc.updateProductWatches.mock.calls[0][0]).toMatchObject({
+      next_discovery_at: new Date(NOW + 80000 * 1000),
+      consecutive_misses: 2,
+    })
+  })
+
+  it("markProductDiscovered retires a watch after the miss threshold", async () => {
+    const svc = makeSvc()
+    const r = await svc.markProductDiscovered({ id: "w", consecutive_misses: 2 }, { found: false })
+    expect(r).toEqual({ misses: 3, retired: true })
+    expect(svc.updateProductWatches.mock.calls[0][0]).toMatchObject({
+      consecutive_misses: 3,
+      is_active: false,
+    })
+  })
+
+  it("markProductDiscovered caps the backed-off interval at the ceiling", async () => {
+    // base 5000 × 4^10 ≫ default 180-day ceiling → clamped.
+    const svc = makeSvc()
+    await svc.markProductDiscovered({ id: "w", consecutive_misses: 9 }, { found: false })
+    expect(svc.updateProductWatches.mock.calls[0][0].next_discovery_at).toEqual(
+      new Date(NOW + 15_552_000 * 1000)
+    )
   })
 
   it("ensureCompetitor returns the existing one or creates it", async () => {

@@ -27,6 +27,6 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     return res.status(404).json({ message: "watch not found (pass watch_id or product_id)" })
   }
 
-  await svc.markProductDiscovered(watch)
-  res.json({ watch_id: watch.id, skipped: true })
+  const { misses, retired } = await svc.markProductDiscovered(watch, { found: false })
+  res.json({ watch_id: watch.id, skipped: true, consecutive_misses: misses, retired })
 }

@@ -28,6 +28,12 @@ export interface CompetitorPricesModuleOptions {
   productDiscoveryIntervalSeconds?: number
   /** Default cadence (seconds) for catalog discovery (competitor's new products). */
   catalogDiscoveryIntervalSeconds?: number
+  /** Multiplier applied to the discovery interval per consecutive miss (found nowhere). */
+  discoveryMissBackoff?: number
+  /** Upper bound (seconds) on the backed-off discovery interval. */
+  maxDiscoveryIntervalSeconds?: number
+  /** Retire a watch (is_active=false) after this many consecutive misses. */
+  discoveryRetireAfterMisses?: number
 }
 
 const DEFAULTS: Required<CompetitorPricesModuleOptions> = {
@@ -42,6 +48,9 @@ const DEFAULTS: Required<CompetitorPricesModuleOptions> = {
   autoConfirmScore: 90,
   productDiscoveryIntervalSeconds: 2_592_000, // 30 days
   catalogDiscoveryIntervalSeconds: 604_800, // 7 days
+  discoveryMissBackoff: 4, // 30d → 120d → 480d(capped) per consecutive miss
+  maxDiscoveryIntervalSeconds: 15_552_000, // 180 days
+  discoveryRetireAfterMisses: 3, // searched & found nowhere 3× → retire
 }
 
 type Outcome = "changed" | "unchanged" | "error"
@@ -283,15 +292,38 @@ export default class CompetitorPricesModuleService extends MedusaService({
     })
   }
 
-  async markProductDiscovered(watch: any): Promise<void> {
-    const interval =
+  /**
+   * Mark a watch as discovered. `found` distinguishes a hit (competitor listing
+   * submitted) from a miss (skip / nothing found). On a miss the consecutive-miss
+   * counter climbs, the interval backs off exponentially (capped), and once the
+   * watch has been searched and found nowhere `discoveryRetireAfterMisses` times
+   * it is retired (is_active=false) — draining own-label / no-competitor products
+   * out of the queue by outcome rather than by guessing their brand.
+   */
+  async markProductDiscovered(
+    watch: any,
+    opts: { found?: boolean } = {}
+  ): Promise<{ misses: number; retired: boolean }> {
+    const found = opts.found ?? true
+    const base =
       watch.discovery_interval_seconds ??
       this.options_.productDiscoveryIntervalSeconds
+    const misses = found ? 0 : (watch.consecutive_misses ?? 0) + 1
+    const interval = found
+      ? base
+      : Math.min(
+          base * Math.pow(this.options_.discoveryMissBackoff, misses),
+          this.options_.maxDiscoveryIntervalSeconds
+        )
+    const retired = !found && misses >= this.options_.discoveryRetireAfterMisses
     await this.updateProductWatches({
       id: watch.id,
       last_discovery_at: new Date(),
+      consecutive_misses: misses,
       next_discovery_at: this.nextDiscoveryAt(interval),
+      ...(retired ? { is_active: false } : {}),
     })
+    return { misses, retired }
   }
 
   /** Get a competitor by handle, creating it if unknown (for discovery). */
