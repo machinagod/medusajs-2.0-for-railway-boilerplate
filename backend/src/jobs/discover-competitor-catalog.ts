@@ -1,15 +1,15 @@
 import type { MedusaContainer } from "@medusajs/framework/types"
 import { COMPETITOR_PRICES_MODULE } from "../modules/competitor-prices"
-import { isDiscoveryConfigured } from "../modules/competitor-prices/discovery/registry"
 import { runCatalogDiscovery } from "../workflows/competitor-prices/discovery-catalog"
 
 let running = false
 
 /**
- * Scheduled catalog discovery — detect competitors' new products. Per-competitor
- * cadence is gated by next_catalog_discovery_at; this is just the tick. No-ops
- * unless a discovery agent is configured (ANTHROPIC_API_KEY + a loader wiring
- * the agent), so it ships inert.
+ * Scheduled catalog discovery — crawl each due competitor's catalog DETERMIN-
+ * ISTICALLY (no LLM) using its configured `catalog_parser`, and feed new products
+ * to the matcher. Per-competitor cadence is gated by next_catalog_discovery_at;
+ * this is just the tick. Competitors without a catalog_parser are skipped, so it
+ * stays inert until the discovery skill has configured one.
  */
 export default async function discoverCompetitorCatalogJob(
   container: MedusaContainer
@@ -20,7 +20,7 @@ export default async function discoverCompetitorCatalogJob(
   } catch {
     return
   }
-  if (!isDiscoveryConfigured() || running) return
+  if (running) return
   running = true
   try {
     await runCatalogDiscovery(container, {})

@@ -294,13 +294,13 @@ describe("discovery queue routes", () => {
     }
     const res = makeRes()
     await fixParserPOST(
-      makeReq(svc, { competitor_handle: "broken", scraper_key: "config-selectors", scraper_hints: { price: ".price" }, price_tax_basis: "excl" }) as any,
+      makeReq(svc, { competitor_handle: "broken", scraper_key: "config-selectors", scraper_hints: { price: ".price" }, price_tax_basis: "excl", catalog_parser: { type: "sitemap", product_url_match: "/p/" } }) as any,
       res
     )
     expect(svc.updateCompetitors).toHaveBeenCalledWith(
-      expect.objectContaining({ id: "c1", scraper_key: "config-selectors", scraper_hints: { price: ".price" }, price_tax_basis: "excl" })
+      expect.objectContaining({ id: "c1", scraper_key: "config-selectors", scraper_hints: { price: ".price" }, price_tax_basis: "excl", catalog_parser: { type: "sitemap", product_url_match: "/p/" } })
     )
-    expect(res.json.mock.calls[0][0].updated).toEqual(expect.arrayContaining(["scraper_key", "scraper_hints", "price_tax_basis"]))
+    expect(res.json.mock.calls[0][0].updated).toEqual(expect.arrayContaining(["scraper_key", "scraper_hints", "price_tax_basis", "catalog_parser"]))
 
     const svc2 = { listCompetitors: jest.fn().mockResolvedValue([]) }
     const res2 = makeRes()

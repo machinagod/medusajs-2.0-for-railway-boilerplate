@@ -1,92 +1,91 @@
-jest.mock("../../../modules/competitor-prices/discovery/registry", () => ({
-  getDiscoveryAgent: jest.fn(),
-  isDiscoveryConfigured: jest.fn(),
+jest.mock("../../../modules/competitor-prices/scrapers/catalog", () => ({
+  enumerateCatalog: jest.fn(),
 }))
-jest.mock("../match", () => ({ runCompetitorMatch: jest.fn() }))
+jest.mock("../match", () => ({ runCompetitorMatch: jest.fn().mockResolvedValue({}) }))
 
-import { runCatalogDiscovery } from "../discovery-catalog"
-import {
-  getDiscoveryAgent,
-  isDiscoveryConfigured,
-} from "../../../modules/competitor-prices/discovery/registry"
+import { runCatalogDiscovery, fetchText } from "../discovery-catalog"
+import { enumerateCatalog } from "../../../modules/competitor-prices/scrapers/catalog"
 import { runCompetitorMatch } from "../match"
 
 const logger = { info: jest.fn(), warn: jest.fn(), error: jest.fn() }
-const makeContainer = (svc: any) => ({
-  resolve: (n: string) => (n === "logger" ? logger : svc),
-})
-
-const baseSvc = () => ({
-  listDueCatalogDiscovery: jest.fn().mockResolvedValue([]),
+const makeSvc = (over: any = {}) => ({
+  listDueCatalogCrawl: jest.fn().mockResolvedValue([]),
   listCompetitors: jest.fn().mockResolvedValue([]),
   listCompetitorProducts: jest.fn().mockResolvedValue([]),
   upsertDiscoveredMapping: jest.fn(),
-  updateCompetitors: jest.fn(),
-  markCatalogDiscovered: jest.fn(),
+  markCatalogDiscovered: jest.fn().mockResolvedValue(undefined),
+  ...over,
+})
+const container = (svc: any) => ({ resolve: (n: string) => (n === "logger" ? logger : svc) })
+
+describe("runCatalogDiscovery (deterministic)", () => {
+  beforeEach(() => jest.clearAllMocks())
+
+  it("skips competitors without a catalog_parser recipe", async () => {
+    const svc = makeSvc({
+      listDueCatalogCrawl: jest
+        .fn()
+        .mockResolvedValue([{ id: "c1", handle: "x", base_url: "https://x", catalog_parser: null }]),
+    })
+    const r = await runCatalogDiscovery(container(svc) as any, {})
+    expect(r).toMatchObject({ considered: 0, crawled: 0, newListings: 0 })
+    expect(enumerateCatalog).not.toHaveBeenCalled()
+  })
+
+  it("enumerates, ingests only NEW urls, and runs the matcher", async () => {
+    const svc = makeSvc({
+      listDueCatalogCrawl: jest.fn().mockResolvedValue([
+        { id: "c1", handle: "egi", base_url: "https://egi.pt", catalog_parser: { type: "sitemap" } },
+      ]),
+      listCompetitorProducts: jest.fn().mockResolvedValue([{ competitor_url: "https://egi.pt/p/known" }]),
+      upsertDiscoveredMapping: jest.fn((_cid: string, l: any) => ({ id: `m_${l.url}`, match_status: "unmatched" })),
+    })
+    ;(enumerateCatalog as jest.Mock).mockResolvedValue([
+      { url: "https://egi.pt/p/known", title: "Known" }, // skipped — already tracked
+      { url: "https://egi.pt/p/new1", title: "Suma (5L)" },
+      { url: "https://egi.pt/p/new2", title: "Clax (20L)" },
+    ])
+    const r = await runCatalogDiscovery(container(svc) as any, {})
+    expect(r).toMatchObject({ considered: 1, crawled: 1, newListings: 2 })
+    expect(svc.upsertDiscoveredMapping).toHaveBeenCalledTimes(2)
+    expect(svc.markCatalogDiscovered).toHaveBeenCalled()
+    expect(runCompetitorMatch).toHaveBeenCalledWith(expect.anything(), {
+      mappingIds: ["m_https://egi.pt/p/new1", "m_https://egi.pt/p/new2"],
+    })
+  })
+
+  it("marks the competitor crawled and continues when enumerate throws", async () => {
+    const svc = makeSvc({
+      listDueCatalogCrawl: jest
+        .fn()
+        .mockResolvedValue([{ id: "c1", handle: "x", base_url: "https://x", catalog_parser: { type: "sitemap" } }]),
+    })
+    ;(enumerateCatalog as jest.Mock).mockRejectedValue(new Error("boom"))
+    const r = await runCatalogDiscovery(container(svc) as any, {})
+    expect(r).toMatchObject({ considered: 1, crawled: 0 })
+    expect(svc.markCatalogDiscovered).toHaveBeenCalled()
+    expect(runCompetitorMatch).not.toHaveBeenCalled()
+  })
+
+  it("targets explicit competitorIds when given", async () => {
+    const svc = makeSvc({ listCompetitors: jest.fn().mockResolvedValue([]) })
+    await runCatalogDiscovery(container(svc) as any, { competitorIds: ["c1"] })
+    expect(svc.listCompetitors).toHaveBeenCalledWith({ id: ["c1"] })
+    expect(svc.listDueCatalogCrawl).not.toHaveBeenCalled()
+  })
 })
 
-describe("runCatalogDiscovery", () => {
-  it("is inert when no agent is configured", async () => {
-    ;(isDiscoveryConfigured as jest.Mock).mockReturnValue(false)
-    ;(getDiscoveryAgent as jest.Mock).mockReturnValue({ key: "noop" })
-    const report = await runCatalogDiscovery(makeContainer(baseSvc()) as any, {})
-    expect(report).toMatchObject({ agent: "noop", considered: 0 })
+describe("fetchText", () => {
+  const realFetch = global.fetch
+  afterEach(() => {
+    global.fetch = realFetch
   })
-
-  it("discovers listings, generates a parser, and triggers matching", async () => {
-    ;(isDiscoveryConfigured as jest.Mock).mockReturnValue(true)
-    const agent = {
-      key: "anthropic",
-      discoverCatalog: jest.fn().mockResolvedValue([{ url: "http://acme/p1", title: "P" }]),
-      generateParser: jest.fn().mockResolvedValue({ scraperKey: "config-selectors", hints: { price: ".p" } }),
-    }
-    ;(getDiscoveryAgent as jest.Mock).mockReturnValue(agent)
-    const svc = baseSvc()
-    svc.listDueCatalogDiscovery.mockResolvedValue([
-      { id: "c", handle: "acme", base_url: "http://acme", metadata: { auto_generate_parser: true } },
-    ])
-    svc.upsertDiscoveredMapping.mockResolvedValue({ match_status: "unmatched" })
-
-    const report = await runCatalogDiscovery(makeContainer(svc) as any, {})
-    expect(report).toMatchObject({ considered: 1, newListings: 1, parsersGenerated: 1 })
-    expect(svc.updateCompetitors).toHaveBeenCalled()
-    expect(svc.markCatalogDiscovered).toHaveBeenCalled()
-    expect(runCompetitorMatch).toHaveBeenCalled()
+  it("returns the body on 2xx", async () => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, text: async () => "<xml/>" }) as any
+    expect(await fetchText("https://x/sitemap.xml")).toBe("<xml/>")
   })
-
-  it("tolerates agent failures and still advances the schedule", async () => {
-    ;(isDiscoveryConfigured as jest.Mock).mockReturnValue(true)
-    const agent = {
-      key: "anthropic",
-      discoverCatalog: jest.fn().mockRejectedValue(new Error("net")),
-      generateParser: jest.fn().mockRejectedValue(new Error("llm")),
-    }
-    ;(getDiscoveryAgent as jest.Mock).mockReturnValue(agent)
-    const svc = baseSvc()
-    svc.listCompetitors.mockResolvedValue([
-      { id: "c", handle: "acme", metadata: { auto_generate_parser: true } },
-    ])
-    const report = await runCatalogDiscovery(makeContainer(svc) as any, { competitorIds: ["c"] })
-    expect(report.newListings).toBe(0)
-    expect(svc.markCatalogDiscovered).toHaveBeenCalled()
-    expect(logger.warn).toHaveBeenCalled()
-  })
-
-  it("tolerates a parser-generation failure (listings still ingested)", async () => {
-    ;(isDiscoveryConfigured as jest.Mock).mockReturnValue(true)
-    const agent = {
-      key: "anthropic",
-      discoverCatalog: jest.fn().mockResolvedValue([{ url: "http://acme/p1" }]),
-      generateParser: jest.fn().mockRejectedValue(new Error("llm")),
-    }
-    ;(getDiscoveryAgent as jest.Mock).mockReturnValue(agent)
-    const svc = baseSvc()
-    svc.listDueCatalogDiscovery.mockResolvedValue([
-      { id: "c", handle: "acme", metadata: { auto_generate_parser: true } },
-    ])
-    svc.upsertDiscoveredMapping.mockResolvedValue({ match_status: "unmatched" })
-    const report = await runCatalogDiscovery(makeContainer(svc) as any, {})
-    expect(report).toMatchObject({ newListings: 1, parsersGenerated: 0 })
-    expect(logger.warn).toHaveBeenCalled()
+  it("throws on a non-2xx response", async () => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 503 }) as any
+    await expect(fetchText("https://x/sitemap.xml")).rejects.toThrow("HTTP 503")
   })
 })

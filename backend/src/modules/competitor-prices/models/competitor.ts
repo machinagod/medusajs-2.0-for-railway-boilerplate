@@ -29,6 +29,12 @@ export const Competitor = model
     refresh_interval_seconds: model.number().nullable(),
 
     // ── Catalog discovery (find this competitor's new products) ──
+    // Deterministic catalog-enumeration recipe (set once by the discovery skill,
+    // like scraper_hints for prices): { type:"shopify"|"sitemap", sitemap_url?,
+    // product_url_match?, fetch_titles? }. When present, the scheduled catalog job
+    // lists this competitor's product pages with no LLM and feeds them to the
+    // matcher. See scrapers/catalog.ts.
+    catalog_parser: model.json().nullable(),
     catalog_discovery_enabled: model.boolean().default(false),
     catalog_discovery_interval_seconds: model.number().nullable(),
     last_catalog_discovery_at: model.dateTime().nullable(),

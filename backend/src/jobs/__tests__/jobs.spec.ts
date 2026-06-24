@@ -77,12 +77,17 @@ describe("snapshot-our-prices job", () => {
 })
 
 describe("discovery jobs", () => {
-  it("skip when no agent is configured", async () => {
+  it("product discovery skips when no LLM agent is configured", async () => {
     ;(isDiscoveryConfigured as jest.Mock).mockReturnValue(false)
-    await catalogJob(okContainer as any)
     await productJob(okContainer as any)
-    expect(runCatalogDiscovery).not.toHaveBeenCalled()
     expect(runProductDiscovery).not.toHaveBeenCalled()
+  })
+
+  it("catalog discovery runs deterministically, with no LLM gate", async () => {
+    ;(isDiscoveryConfigured as jest.Mock).mockReturnValue(false)
+    ;(runCatalogDiscovery as jest.Mock).mockResolvedValue({})
+    await catalogJob(okContainer as any)
+    expect(runCatalogDiscovery).toHaveBeenCalled()
   })
 
   it("skip when the module is not registered", async () => {

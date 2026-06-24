@@ -34,7 +34,7 @@ all the data and runs the deterministic scrapers.
 **Parser self-correction:**
 
 8. `competitor_discovery_parser_issues()` → competitors whose parser yields no prices, with the current recipe + sample failing URLs
-9. `competitor_discovery_fix_parser({ competitor_handle, scraper_key?, scraper_hints?, deactivate? })` — apply a corrected recipe (or deactivate a login-gated store)
+9. `competitor_discovery_fix_parser({ competitor_handle, scraper_key?, scraper_hints?, price_tax_basis?, catalog_parser?, deactivate? })` — apply a corrected price recipe, the tax basis, or the **catalog_parser** recipe (or deactivate a login-gated store)
 
 > Fallback only if the MCP server is unavailable: the same routes are reachable via
 > `curl` against `${MEDUSA_BACKEND_URL:-https://storeadmin.higitotal.pt}` with an
@@ -124,6 +124,42 @@ If you genuinely can't tell, omit the field (the backend leaves it unknown rathe
 than mis-normalising). Set it once per store; it's reused for all its products and
 backfills an existing store that lacked it.
 
+## Catalog parser recipe (per competitor — set ONCE, backend auto-crawls)
+
+Reverse (catalog) discovery is **deterministic**, mirroring the price scraper:
+instead of you crawling a competitor's whole catalog by hand on every run, you
+configure a `catalog_parser` recipe **once** per competitor, and the backend
+enumerates that competitor's product pages on a nightly schedule **with no LLM**,
+feeding any new URLs straight into the matcher. Your job is only to pick the recipe.
+
+Set it with `competitor_discovery_fix_parser({ competitor_handle, catalog_parser })`.
+Open the store once and choose the cheapest strategy that yields clean product URLs:
+
+- **Shopify** — the site serves a working `/products.json`. Recipe:
+  `{ "type": "shopify" }`. The backend paginates `/products.json` for exact handles
+  + titles. Quick check: `WebFetch ${base_url}/products.json?limit=1` → if it returns
+  a JSON `products` array, use this (most reliable, exact titles, no guessing).
+- **Sitemap** — anything with an XML sitemap (most WooCommerce / PrestaShop /
+  Magento). Recipe:
+  `{ "type": "sitemap", "product_url_match": "/produto/", "sitemap_url"?: "…", "fetch_titles"?: true }`:
+  - `product_url_match` — the substring that distinguishes a **product** URL from
+    category / blog / page URLs. **Read real `<loc>` entries from the sitemap and
+    pick the segment products actually share** — WooCommerce `/product/` or
+    `/produto/`, Magento product URLs usually end `.html`, PrestaShop often has a
+    numeric-id slug. A wrong filter yields 0 URLs or all-junk URLs, so verify it
+    against the live sitemap before saving. Omit it only if every `<loc>` is a
+    product.
+  - `sitemap_url` — only when it isn't `${base_url}/sitemap.xml` (the backend
+    auto-follows a `<sitemapindex>`). Magento is often `/sitemap.xml` or
+    `/pub/sitemap.xml`.
+  - `fetch_titles: true` — only when the slug makes a poor title (numeric-only /
+    cryptic). Otherwise the backend de-slugifies a decent title for free, which is
+    cheaper — prefer leaving it off.
+
+A competitor with **no** `catalog_parser` is simply skipped by the nightly catalog
+crawl, so setting one is what **turns catalog discovery on** for that store. Set it
+whenever you add/verify a competitor whose platform you can identify.
+
 ## Discovering NEW stores (grow the competitor set)
 
 If your research surfaces a store that is **NOT** in the competitor list but
@@ -179,10 +215,18 @@ don't add — note it in your report instead.
    `competitor_discovery_stats()` and report: watches processed, listings
    submitted, skipped, queue remaining.
 
-**Reverse (catalog) discovery:** pull `competitor_discovery_catalog_next_batch`,
-crawl each competitor's catalog (sitemap / category pages / search) **skipping its
-`known_urls`**, and post what you find with `competitor_discovery_catalog_submit`;
-the backend matches it to our products (strict SKU/EAN + size-aware fuzzy).
+**Reverse (catalog) discovery — prefer the deterministic recipe.** The first-class
+path is to set each competitor's `catalog_parser` once (see "Catalog parser recipe"
+above) and let the nightly backend job enumerate + match with no LLM. When you
+verify or add a store whose platform you recognise (Shopify / sitemap), set its
+recipe with `competitor_discovery_fix_parser({ competitor_handle, catalog_parser })`
+— that's the whole job; do NOT hand-crawl it.
+
+Only fall back to a manual crawl for a store **no recipe fits** (no `/products.json`,
+no usable sitemap): pull `competitor_discovery_catalog_next_batch`, crawl its catalog
+(category pages / search) **skipping its `known_urls`**, and post findings with
+`competitor_discovery_catalog_submit`; the backend matches them to our products
+(strict SKU/EAN + size-aware fuzzy).
 
 ## Fan-out with subagents (for batches > ~6 watches)
 
