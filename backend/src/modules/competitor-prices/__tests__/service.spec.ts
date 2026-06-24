@@ -80,6 +80,7 @@ describe("listDue* filters", () => {
     await svc.listDueMappings(5)
     let [filters, config] = svc.listCompetitorProducts.mock.calls[0]
     expect(filters.is_active).toBe(true)
+    expect(filters.product_id).toEqual({ $ne: null }) // only matched mappings are scraped
     expect(filters.$or).toHaveLength(2)
     expect(config).toMatchObject({ take: 5, relations: ["competitor"], order: { next_scrape_at: "ASC" } })
 
