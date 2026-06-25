@@ -424,14 +424,27 @@ describe("catalog-items (assortment-gap) viewer", () => {
     })
   })
 
-  it("GET /catalog-items defaults paging and omits the competitor filter", async () => {
-    const svc = { listAndCountCompetitorProducts: jest.fn().mockResolvedValue([[], 0]) }
+  it("GET /catalog-items defaults paging, omits the filter, and null-fills missing fields", async () => {
+    const svc = {
+      listAndCountCompetitorProducts: jest
+        .fn()
+        // a bare row (no competitor relation, no metadata) exercises the null fallbacks
+        .mockResolvedValue([[{ id: "m2", competitor_url: "u", title: "t" }], 1]),
+    }
     const res = makeRes()
     await catalogItemsGET(makeReq(svc) as any, res)
     const [filters, config] = svc.listAndCountCompetitorProducts.mock.calls[0]
     expect(filters).toEqual({ match_status: "catalog_only" })
     expect(config).toMatchObject({ take: 50, skip: 0 })
-    expect(res.json.mock.calls[0][0]).toMatchObject({ count: 0, items: [] })
+    const payload = res.json.mock.calls[0][0]
+    expect(payload).toMatchObject({ count: 1, offset: 0 })
+    expect(payload.items[0]).toMatchObject({
+      id: "m2",
+      competitor_handle: null,
+      competitor_name: null,
+      country: null,
+      discovered_at: null,
+    })
   })
 })
 
