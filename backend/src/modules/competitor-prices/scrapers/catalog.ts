@@ -30,7 +30,28 @@ export type CatalogItem = { url: string; title: string }
 export type FetchText = (url: string) => Promise<string>
 
 const DEFAULT_MAX = 800
-const SITEMAP_INDEX_LIMIT = 8 // child sitemaps to follow from an index
+const SITEMAP_INDEX_LIMIT = 25 // child sitemaps to follow from an index
+
+/**
+ * Rank child sitemaps so product-bearing ones are followed first and obvious
+ * non-product ones (tags, categories, CMS/blog/pages) last. Large WooCommerce/
+ * PrestaShop indexes list dozens of children (e.g. 37 `producttags` before the
+ * product sitemaps); without ranking, the index-follow budget is spent on noise.
+ */
+function rankSitemapChildren(urls: string[]): string[] {
+  const score = (u: string): number => {
+    const s = u.toLowerCase()
+    if (/tag|categor|marca|fabricante|manufacturer|supplier|brand/.test(s)) return -2
+    if (/cms|blog|post|page|news|noticia|misc|meta/.test(s)) return -1
+    if (/product|produto|producto/.test(s)) return 2 // product sitemaps first
+    return 0
+  }
+  // Stable sort by descending score (keeps original order within a tier).
+  return urls
+    .map((u, i) => ({ u, i, k: score(u) }))
+    .sort((a, b) => b.k - a.k || a.i - b.i)
+    .map((x) => x.u)
+}
 
 /** "/produto/suma-chlor-d4-4-5l/" → "suma chlor d4 4 5l". */
 export function titleFromSlug(url: string): string {
@@ -108,7 +129,7 @@ async function enumSitemap(
   let urls: string[]
   if (/<sitemapindex/i.test(xml)) {
     urls = []
-    for (const child of locs(xml).slice(0, SITEMAP_INDEX_LIMIT)) {
+    for (const child of rankSitemapChildren(locs(xml)).slice(0, SITEMAP_INDEX_LIMIT)) {
       if (urls.length >= max * 2) break
       try {
         urls.push(...locs(await fetchText(child)))

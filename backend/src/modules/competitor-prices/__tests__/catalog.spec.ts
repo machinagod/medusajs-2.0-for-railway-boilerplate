@@ -96,6 +96,28 @@ describe("enumerateCatalog — sitemap", () => {
     ])
   })
 
+  it("prioritises product child-sitemaps over tag/category/cms in a large index", async () => {
+    // Product sitemap appears LAST in document order, behind noise children.
+    const children = [
+      `${base}/sitemap-producttags-1.xml`, // tag → ranked last
+      `${base}/sitemap-category.xml`, // category → ranked last
+      `${base}/sitemap-cms.xml`, // cms → low
+      `${base}/sitemap-main.xml`, // neutral
+      `${base}/sitemap-products.xml`, // product → ranked first
+    ]
+    const index = `<sitemapindex>${children.map((c) => `<sitemap><loc>${c}</loc></sitemap>`).join("")}</sitemapindex>`
+    const items = await enumerateCatalog(
+      base,
+      { type: "sitemap", product_url_match: "/producto/" },
+      // only the product child resolves; the noise children would 404 (skipped)
+      fetcher({ [`${base}/sitemap.xml`]: index, [`${base}/sitemap-products.xml`]: sitemap })
+    )
+    expect(items.map((i) => i.url)).toEqual([
+      `${base}/producto/suma-chlor-5l`,
+      `${base}/producto/clax-build-20l`,
+    ])
+  })
+
   it("follows a sitemap index", async () => {
     const index = `<sitemapindex><sitemap><loc>${base}/sm-products.xml</loc></sitemap></sitemapindex>`
     const items = await enumerateCatalog(
