@@ -1,5 +1,3 @@
-import { cache } from "react"
-
 import { listRegions } from "@lib/data/regions"
 import { getBaseURL } from "./env"
 
@@ -29,8 +27,11 @@ export const absoluteUrl = (path = "/") => {
  * Prefers `NEXT_PUBLIC_DEFAULT_REGION` when it maps to a real region, otherwise
  * the first available region country. Fails soft to the configured default so
  * metadata still renders when the backend is unreachable (e.g. Docker build).
+ *
+ * Not memoized here on purpose — `listRegions` is already request-cached, so the
+ * extra work is negligible and the function stays trivially unit-testable.
  */
-export const getCanonicalCountryCode = cache(async (): Promise<string> => {
+export const getCanonicalCountryCode = async (): Promise<string> => {
   const preferred = (process.env.NEXT_PUBLIC_DEFAULT_REGION || "").toLowerCase()
   try {
     const regions = await listRegions()
@@ -45,7 +46,7 @@ export const getCanonicalCountryCode = cache(async (): Promise<string> => {
   } catch {
     return preferred || "dk"
   }
-})
+}
 
 /**
  * Absolute canonical URL for a localized page. Pass the path WITHOUT the country
