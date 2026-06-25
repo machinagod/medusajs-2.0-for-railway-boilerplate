@@ -33,7 +33,9 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
 
   // ── Competitor observations (per-our-unit), normalised to our net basis ──
   const mappings = await svc.listCompetitorProducts(
-    ids ? { product_id: ids } : { match_status: ["confirmed", "fuzzy"] },
+    // Confirmed matches only — the market sparkline must mirror the live (shown)
+    // comparison, and unreviewed fuzzy proposals aren't scraped.
+    ids ? { product_id: ids } : { match_status: "confirmed" },
     { relations: ["prices", "competitor"], take: 5000 }
   )
   for (const m of mappings) {

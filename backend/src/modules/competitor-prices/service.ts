@@ -117,11 +117,10 @@ export default class CompetitorPricesModuleService extends MedusaService({
 
   /** Active mappings whose next_scrape_at is due (or never scraped). */
   async listDueMappings(limit?: number, force = false): Promise<any[]> {
-    // Only scrape mappings resolved to one of OUR products. Deterministic catalog
-    // discovery ingests a competitor's whole catalog as `unmatched` rows (kept so
-    // re-enumeration can skip them); those have no `product_id` and must never
-    // become scrape targets — there is nothing of ours to compare them against.
-    const filters: Record<string, any> = { is_active: true, product_id: { $ne: null } }
+    // Only scrape CONFIRMED matches (deterministic EAN/SKU/brand-ref or agent/human
+    // confirmed). `fuzzy` proposals and `catalog_only` rows are never scraped — the
+    // former are unreviewed (mostly wrong), the latter aren't ours to compare.
+    const filters: Record<string, any> = { is_active: true, match_status: "confirmed" }
     if (!force) {
       filters.$or = [
         { next_scrape_at: null },
@@ -230,8 +229,14 @@ export default class CompetitorPricesModuleService extends MedusaService({
       })
       return "catalog_only"
     }
+    // Only DETERMINISTIC signals (EAN / SKU / brand+reference) auto-confirm. A
+    // title-only fuzzy match is too unreliable to trust — audited at <50% precision
+    // even in its best score band — so it becomes a `fuzzy` PROPOSAL for agent/human
+    // review, never a live (scraped/shown) match, regardless of score.
     const status =
-      candidate.score >= this.options_.autoConfirmScore ? "confirmed" : "fuzzy"
+      candidate.method !== "fuzzy" && candidate.score >= this.options_.autoConfirmScore
+        ? "confirmed"
+        : "fuzzy"
     await this.updateCompetitorProducts({
       id: mapping.id,
       product_id: candidate.product_id,

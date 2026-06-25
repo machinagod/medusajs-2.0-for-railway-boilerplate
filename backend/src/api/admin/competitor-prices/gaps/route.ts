@@ -15,9 +15,11 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
   const svc: any = req.scope.resolve(COMPETITOR_PRICES_MODULE)
 
   const mappings = await svc.listCompetitorProducts(
-    { match_status: ["confirmed", "fuzzy"] },
-    // Cover every matched mapping (8k+) — the €/unit gaps aggregate per product, so
-    // a low cap would silently drop competitors from the market distribution.
+    // Confirmed matches only — unreviewed fuzzy proposals (audited <50% precision)
+    // would skew the €/unit market distribution with wrong products.
+    { match_status: "confirmed" },
+    // Cover every confirmed mapping — the €/unit gaps aggregate per product, so a
+    // low cap would silently drop competitors from the market distribution.
     { relations: ["prices", "competitor"], take: 20000 }
   )
 

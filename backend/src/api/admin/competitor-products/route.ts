@@ -25,9 +25,10 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
   if (product_id) filters.product_id = product_id
   if (competitor_id) filters.competitor_id = competitor_id
   if (match_status) filters.match_status = match_status
-  // The product-grouped price view defaults to MATCHED mappings (those resolved to
-  // one of our products); the 14k+ `catalog_only` rows belong to the Catalog tab.
-  if (!product_id && !match_status) filters.product_id = { $ne: null }
+  // The price view defaults to CONFIRMED matches only — `fuzzy` proposals are
+  // unreviewed (mostly wrong) and live in the Match Review queue; `catalog_only`
+  // lives in the Catalog tab. An explicit ?match_status overrides this.
+  if (!product_id && !match_status) filters.match_status = "confirmed"
 
   // Light pass: all matching mappings (competitor name only, no price history) —
   // enough to group, search, sort, and count BEFORE paging. Prices are loaded only
@@ -112,12 +113,18 @@ interface CreateMappingBody {
 }
 
 /**
- * POST /admin/competitor-products — create a mapping. Newly created mappings are
- * due immediately (next_scrape_at left null), so the next tick scrapes them.
+ * POST /admin/competitor-products — manually create a mapping (override insertion).
+ * Linking it to one of our products (`product_id`) marks it `confirmed`/`manual` so
+ * it goes live immediately; without a product it's an `unmatched` listing. Newly
+ * created mappings are due at once (next_scrape_at null), so the next tick scrapes.
  */
 export async function POST(req: MedusaRequest, res: MedusaResponse) {
   const body = (req.body ?? {}) as CreateMappingBody
   const svc: any = req.scope.resolve(COMPETITOR_PRICES_MODULE)
-  const competitor_product = await svc.createCompetitorProducts(body)
+  const competitor_product = await svc.createCompetitorProducts({
+    ...body,
+    match_status: body.product_id ? "confirmed" : "unmatched",
+    match_method: body.product_id ? "manual" : null,
+  })
   res.status(201).json({ competitor_product })
 }

@@ -80,7 +80,7 @@ describe("listDue* filters", () => {
     await svc.listDueMappings(5)
     let [filters, config] = svc.listCompetitorProducts.mock.calls[0]
     expect(filters.is_active).toBe(true)
-    expect(filters.product_id).toEqual({ $ne: null }) // only matched mappings are scraped
+    expect(filters.match_status).toBe("confirmed") // only confirmed matches are scraped
     expect(filters.$or).toHaveLength(2)
     expect(config).toMatchObject({ take: 5, relations: ["competitor"], order: { next_scrape_at: "ASC" } })
 
@@ -254,6 +254,17 @@ describe("applyMatch", () => {
     const svc = makeSvc()
     const status = await svc.applyMatch({ id: "m" }, { product_id: "p", score: 70, method: "fuzzy" })
     expect(status).toBe("fuzzy")
+  })
+
+  it("never auto-confirms a title-fuzzy match, even at a high score", async () => {
+    const svc = makeSvc()
+    // method "fuzzy" stays a review proposal regardless of score (audited unreliable)
+    expect(await svc.applyMatch({ id: "m" }, { product_id: "p", score: 99, method: "fuzzy" })).toBe("fuzzy")
+  })
+
+  it("confirms a deterministic brand_ref match at/above the threshold", async () => {
+    const svc = makeSvc()
+    expect(await svc.applyMatch({ id: "m" }, { product_id: "p", score: 92, method: "brand_ref" })).toBe("confirmed")
   })
 })
 

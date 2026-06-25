@@ -20,6 +20,9 @@ import { POST as catSubmitPOST } from "../competitor-prices/discovery/catalog/su
 import { GET as catalogItemsGET } from "../competitor-prices/catalog-items/route"
 import { GET as gapsGET } from "../competitor-prices/gaps/route"
 import { GET as historyGET } from "../competitor-prices/price-history/route"
+import { DELETE as cpDelete } from "../competitor-products/[id]/route"
+import { POST as resolvePOST } from "../competitor-prices/match/resolve/route"
+import { GET as reviewGET } from "../competitor-prices/match/review/route"
 import { runCompetitorMatch } from "../../../workflows/competitor-prices/match"
 import { runCompetitorScrape } from "../../../workflows/competitor-prices/scrape"
 import { runCatalogDiscovery } from "../../../workflows/competitor-prices/discovery-catalog"
@@ -138,11 +141,31 @@ describe("admin routes", () => {
     expect(res.json.mock.calls[0][0].products).toEqual({})
   })
 
-  it("POST /admin/competitor-products", async () => {
+  it("POST /admin/competitor-products inserts an unmatched listing", async () => {
     const svc = { createCompetitorProducts: jest.fn().mockResolvedValue({ id: "m" }) }
     const res = makeRes()
     await cpPOST(makeReq(svc, { competitor_id: "c", competitor_url: "u" }) as any, res)
     expect(res.status).toHaveBeenCalledWith(201)
+    expect(svc.createCompetitorProducts).toHaveBeenCalledWith(
+      expect.objectContaining({ match_status: "unmatched", match_method: null })
+    )
+  })
+
+  it("POST /admin/competitor-products with product_id is a confirmed manual override", async () => {
+    const svc = { createCompetitorProducts: jest.fn().mockResolvedValue({ id: "m" }) }
+    const res = makeRes()
+    await cpPOST(makeReq(svc, { competitor_id: "c", competitor_url: "u", product_id: "p1" }) as any, res)
+    expect(svc.createCompetitorProducts).toHaveBeenCalledWith(
+      expect.objectContaining({ product_id: "p1", match_status: "confirmed", match_method: "manual" })
+    )
+  })
+
+  it("DELETE /admin/competitor-products/:id removes a mapping", async () => {
+    const svc = { deleteCompetitorProducts: jest.fn().mockResolvedValue(undefined) }
+    const res = makeRes()
+    await cpDelete({ scope: { resolve: () => svc }, params: { id: "m9" } } as any, res)
+    expect(svc.deleteCompetitorProducts).toHaveBeenCalledWith("m9")
+    expect(res.json).toHaveBeenCalledWith({ id: "m9", object: "competitor_product", deleted: true })
   })
 
   it("GET/POST /admin/product-watches", async () => {
@@ -222,7 +245,7 @@ describe("admin routes", () => {
     const res = makeRes()
     await cpGET({ scope: { resolve: () => svc }, body: {}, query: {} } as any, res)
     // no explicit filters → defaults to matched-only (product_id present)
-    expect(svc.listCompetitorProducts).toHaveBeenNthCalledWith(1, { product_id: { $ne: null } }, expect.anything())
+    expect(svc.listCompetitorProducts).toHaveBeenNthCalledWith(1, { match_status: "confirmed" }, expect.anything())
     expect(res.json.mock.calls[0][0].competitor_products[0].latest_price.price).toBe(2)
   })
 })
@@ -477,6 +500,93 @@ describe("catalog-items (assortment-gap) viewer", () => {
   })
 })
 
+describe("match review + resolve", () => {
+  const req = (svc: any, body: any = {}, query: any = {}) => ({
+    scope: { resolve: (n: string) => (n === "query" ? { graph: jest.fn().mockRejectedValue(new Error("x")) } : svc) },
+    body,
+    query,
+  })
+
+  it("GET /match/review lists fuzzy proposals with the proposed product", async () => {
+    const svc = {
+      listAndCountCompetitorProducts: jest.fn().mockResolvedValue([
+        [{ id: "m1", product_id: "p1", title: "Rival X", competitor: { handle: "egi-pt", name: "EGI" }, competitor_url: "u", match_score: 72 }],
+        1,
+      ]),
+    }
+    const res = makeRes()
+    await reviewGET(req(svc, {}, { limit: "10", competitor_id: "c1" }) as any, res)
+    const [filters, cfg] = svc.listAndCountCompetitorProducts.mock.calls[0]
+    expect(filters).toEqual({ match_status: "fuzzy", competitor_id: "c1" })
+    expect(cfg).toMatchObject({ take: 10, order: { match_score: "DESC" } })
+    const payload = res.json.mock.calls[0][0]
+    expect(payload).toMatchObject({ count: 1 })
+    expect(payload.items[0]).toMatchObject({ id: "m1", theirs_title: "Rival X", proposed_product_id: "p1", match_score: 72 })
+  })
+
+  it("POST /match/resolve confirms a proposal (goes live)", async () => {
+    const svc = {
+      listCompetitorProducts: jest.fn().mockResolvedValue([{ id: "m1", product_id: "p1", match_method: "fuzzy", metadata: {} }]),
+      updateCompetitorProducts: jest.fn().mockResolvedValue(undefined),
+    }
+    const res = makeRes()
+    await resolvePOST(req(svc, { mapping_id: "m1", action: "confirm", by: "agent" }) as any, res)
+    expect(svc.updateCompetitorProducts).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "m1", match_status: "confirmed", next_scrape_at: null })
+    )
+    expect(res.json.mock.calls[0][0]).toMatchObject({ match_status: "confirmed", product_id: "p1" })
+  })
+
+  it("POST /match/resolve rejects a proposal (→ catalog_only, link cleared)", async () => {
+    const svc = {
+      listCompetitorProducts: jest.fn().mockResolvedValue([{ id: "m1", product_id: "p1", metadata: {} }]),
+      updateCompetitorProducts: jest.fn().mockResolvedValue(undefined),
+    }
+    const res = makeRes()
+    await resolvePOST(req(svc, { mapping_id: "m1", action: "reject" }) as any, res)
+    expect(svc.updateCompetitorProducts).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "m1", match_status: "catalog_only", product_id: null })
+    )
+  })
+
+  it("POST /match/resolve reassigns to a different product", async () => {
+    const svc = {
+      listCompetitorProducts: jest.fn().mockResolvedValue([{ id: "m1", product_id: "p1", metadata: {} }]),
+      updateCompetitorProducts: jest.fn().mockResolvedValue(undefined),
+    }
+    const res = makeRes()
+    await resolvePOST(req(svc, { mapping_id: "m1", action: "reassign", product_id: "p2" }) as any, res)
+    expect(svc.updateCompetitorProducts).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "m1", product_id: "p2", match_status: "confirmed", match_method: "manual" })
+    )
+  })
+
+  it("POST /match/resolve validates input", async () => {
+    const res1 = makeRes()
+    await resolvePOST(req({}, { action: "confirm" }) as any, res1) // no mapping_id
+    expect(res1.status).toHaveBeenCalledWith(400)
+
+    const svc = { listCompetitorProducts: jest.fn().mockResolvedValue([]) }
+    const res2 = makeRes()
+    await resolvePOST(req(svc, { mapping_id: "nope", action: "confirm" }) as any, res2)
+    expect(res2.status).toHaveBeenCalledWith(404)
+
+    const svc3 = { listCompetitorProducts: jest.fn().mockResolvedValue([{ id: "m1", metadata: {} }]) } // no product_id
+    const res3 = makeRes()
+    await resolvePOST(req(svc3, { mapping_id: "m1", action: "confirm" }) as any, res3)
+    expect(res3.status).toHaveBeenCalledWith(400)
+
+    const svc4 = { listCompetitorProducts: jest.fn().mockResolvedValue([{ id: "m1", product_id: "p1", metadata: {} }]) }
+    const res4 = makeRes()
+    await resolvePOST(req(svc4, { mapping_id: "m1", action: "reassign" }) as any, res4) // no product_id
+    expect(res4.status).toHaveBeenCalledWith(400)
+
+    const res5 = makeRes()
+    await resolvePOST(req(svc4, { mapping_id: "m1", action: "bogus" }) as any, res5)
+    expect(res5.status).toHaveBeenCalledWith(400)
+  })
+})
+
 describe("competitor-prices gaps route", () => {
   const cpReq = (svc: any, query: any, q: any = {}) => ({
     scope: { resolve: (n: string) => (n === "query" ? query : svc) },
@@ -510,7 +620,7 @@ describe("competitor-prices gaps route", () => {
     const res = makeRes()
     await gapsGET(cpReq(svc, query) as any, res)
     expect(svc.listCompetitorProducts).toHaveBeenCalledWith(
-      { match_status: ["confirmed", "fuzzy"] },
+      { match_status: "confirmed" },
       expect.objectContaining({ relations: ["prices", "competitor"] })
     )
     const payload = res.json.mock.calls[0][0]
@@ -571,7 +681,7 @@ describe("competitor-prices price-history route", () => {
     await historyGET({ scope: { resolve: () => svc }, query: {} } as any, res)
     expect(svc.listProductPriceHistories).toHaveBeenCalledWith({}, expect.anything())
     expect(svc.listCompetitorProducts).toHaveBeenCalledWith(
-      { match_status: ["confirmed", "fuzzy"] },
+      { match_status: "confirmed" },
       expect.objectContaining({ relations: ["prices", "competitor"] })
     )
     expect(res.json.mock.calls[0][0]).toMatchObject({ count: 0 })
