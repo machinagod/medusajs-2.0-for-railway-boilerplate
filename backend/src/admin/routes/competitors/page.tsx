@@ -17,6 +17,9 @@ type Competitor = {
   metadata?: { discovered?: boolean } | null
   mapping_count?: number
   priced_count?: number
+  confirmed_count?: number
+  fuzzy_count?: number
+  catalog_only_count?: number
 }
 
 const CompetitorsPage = () => {
@@ -97,9 +100,10 @@ const parserSummary = (c: Competitor): string => {
 
 const CompetitorRow = ({ c }: { c: Competitor }) => {
   const discovered = c.metadata?.discovered
+  // priced (live, confirmed + scraped) · matched (confirmed) · catalog (catalog_only)
   const coverage =
     c.mapping_count != null
-      ? `${c.priced_count ?? 0}/${c.mapping_count} priced`
+      ? `${c.priced_count ?? 0} priced · ${c.confirmed_count ?? 0} matched · ${(c.catalog_only_count ?? 0).toLocaleString()} catalog`
       : "—"
   return (
     <div className="flex items-center justify-between gap-x-3 px-4 py-3 md:px-6">

@@ -44,16 +44,29 @@ describe("admin routes", () => {
   it("GET/POST /admin/competitors", async () => {
     const svc = {
       listCompetitors: jest.fn().mockResolvedValue([{ id: "c" }, { id: "c2" }]),
-      listCompetitorProducts: jest.fn().mockResolvedValue([
-        { competitor_id: "c", prices: [{ status: "ok", price: 100 }] },
-        { competitor_id: "c", prices: [] },
-      ]),
+      listCompetitorProducts: jest
+        .fn()
+        // pass 1: ALL mappings (light) — tally per status
+        .mockResolvedValueOnce([
+          { competitor_id: "c", match_status: "confirmed" },
+          { competitor_id: "c", match_status: "catalog_only" },
+          { competitor_id: "c", match_status: "fuzzy" },
+        ])
+        // pass 2: confirmed mappings with price history — tally priced
+        .mockResolvedValueOnce([{ competitor_id: "c", prices: [{ status: "ok", price: 100 }] }]),
       createCompetitors: jest.fn().mockResolvedValue({ id: "new" }),
     }
     const res1 = makeRes()
     await competitorsGET(makeReq(svc) as any, res1)
     const out = res1.json.mock.calls[0][0].competitors
-    expect(out[0]).toMatchObject({ id: "c", mapping_count: 2, priced_count: 1 })
+    expect(out[0]).toMatchObject({
+      id: "c",
+      mapping_count: 3,
+      confirmed_count: 1,
+      fuzzy_count: 1,
+      catalog_only_count: 1,
+      priced_count: 1,
+    })
     expect(out[1]).toMatchObject({ id: "c2", mapping_count: 0, priced_count: 0 })
 
     const res2 = makeRes()
@@ -510,8 +523,11 @@ describe("match review + resolve", () => {
   it("GET /match/review lists fuzzy proposals with the proposed product", async () => {
     const svc = {
       listAndCountCompetitorProducts: jest.fn().mockResolvedValue([
-        [{ id: "m1", product_id: "p1", title: "Rival X", competitor: { handle: "egi-pt", name: "EGI" }, competitor_url: "u", match_score: 72 }],
-        1,
+        [
+          { id: "m1", product_id: "p1", title: "Rival X", competitor: { handle: "egi-pt", name: "EGI" }, competitor_url: "u", match_score: 72 },
+          { id: "m2", title: "Bare", competitor_url: "u2" }, // no product_id, no competitor → null fallbacks
+        ],
+        2,
       ]),
     }
     const res = makeRes()
@@ -520,8 +536,9 @@ describe("match review + resolve", () => {
     expect(filters).toEqual({ match_status: "fuzzy", competitor_id: "c1" })
     expect(cfg).toMatchObject({ take: 10, order: { match_score: "DESC" } })
     const payload = res.json.mock.calls[0][0]
-    expect(payload).toMatchObject({ count: 1 })
+    expect(payload).toMatchObject({ count: 2 })
     expect(payload.items[0]).toMatchObject({ id: "m1", theirs_title: "Rival X", proposed_product_id: "p1", match_score: 72 })
+    expect(payload.items[1]).toMatchObject({ id: "m2", competitor_handle: null, proposed_product_id: null, proposed_title: null })
   })
 
   it("POST /match/resolve confirms a proposal (goes live)", async () => {
