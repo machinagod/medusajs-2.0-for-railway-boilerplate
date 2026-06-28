@@ -1,3 +1,4 @@
+import Image from "next/image"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { getFeaturedCategories } from "@lib/data/categories"
 import FeaturedCarousel from "@modules/home/components/hero/featured-carousel"
@@ -78,12 +79,20 @@ const Hero = async ({
             <span className="absolute right-0 top-2 inline-flex items-center gap-2 rounded-pill bg-white/15 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.1em] text-white backdrop-blur">
               <span className="ind" /> Em destaque
             </span>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={image}
-              alt=""
-              className="relative max-h-[320px] w-auto object-contain drop-shadow-2xl"
-            />
+            {/* Featured product shot — above-the-fold on desktop, so it is the
+                LCP candidate here: optimized + priority-loaded. Capped-height
+                contain box preserves the original auto-width look. */}
+            <div className="relative h-[320px] w-full max-w-[360px]">
+              <Image
+                src={image}
+                alt=""
+                aria-hidden
+                fill
+                priority
+                sizes="360px"
+                className="object-contain drop-shadow-2xl"
+              />
+            </div>
           </div>
         )}
       </div>

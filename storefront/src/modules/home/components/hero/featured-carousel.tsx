@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Image from "next/image"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { ArrowRight } from "lucide-react"
 import { SLIDES } from "@modules/home/components/hero/featured-slides"
@@ -81,11 +82,13 @@ const FeaturedCarousel = ({ images }: FeaturedCarouselProps) => {
               </div>
 
               {image && (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
+                <Image
                   src={image}
                   alt=""
                   aria-hidden
+                  width={112}
+                  height={112}
+                  sizes="112px"
                   className="h-24 w-24 shrink-0 self-center rounded-card object-contain small:h-28 small:w-28"
                 />
               )}

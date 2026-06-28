@@ -194,5 +194,9 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api|_next/static|favicon.ico|.*\\.png|.*\\.jpg|.*\\.gif|.*\\.svg).*)"], // prevents redirecting on static files
+  // Exclude Next internals (static assets AND the image optimizer) plus the
+  // healthcheck/api and bare static files. `_next/image` MUST be excluded — the
+  // region-redirect below would otherwise 307 every optimized image request to
+  // `/{countryCode}/_next/image`, which isn't a valid route, breaking all images.
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|.*\\.png|.*\\.jpg|.*\\.gif|.*\\.svg).*)"], // prevents redirecting on static files / the image optimizer
 }

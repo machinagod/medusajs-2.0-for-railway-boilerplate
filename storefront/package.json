@@ -52,6 +52,7 @@
     "react-instantsearch-hooks-web": "^6.47.3",
     "react-intersection-observer": "^9.3.4",
     "server-only": "^0.0.1",
+    "sharp": "^0.34.5",
     "tailwindcss-radix": "^2.8.0",
     "webpack": "^5.106.2"
   },
