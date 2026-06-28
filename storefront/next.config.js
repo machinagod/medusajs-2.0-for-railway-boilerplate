@@ -17,7 +17,18 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
-    unoptimized: true,
+    // Next/image optimization is ON: the runner (`next start`) resizes source
+    // images and serves modern formats via /_next/image, backed by `sharp`
+    // (pinned as a prod dependency so it survives `pnpm prune --prod`).
+    // WebP only — AVIF's encode cost isn't worth it given Railway's image cache
+    // is ephemeral (re-optimizes after each redeploy/restart).
+    formats: ["image/webp"],
+    // Allowed `quality` values (Next 15.5 gates these): 50 = product thumbnails,
+    // 75 = the default used everywhere else (e.g. the PDP gallery).
+    qualities: [50, 75],
+    // Product imagery is stable and content-addressed in storage, so cache
+    // optimized variants aggressively to maximize reuse within a container's life.
+    minimumCacheTTL: 2678400, // 31 days
     remotePatterns: [
       {
         protocol: "http",
