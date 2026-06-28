@@ -99,7 +99,10 @@ jobs:
         run: |
           pnpm install --frozen-lockfile
           pnpm test:coverage
-          sed -i 's#^SF:#SF:backend/#' coverage/lcov.info
+          # The backend's only unit tests lived in the competitor-prices module,
+          # now extracted to its plugin — so jest may emit no lcov. Guard the
+          # prefix rewrite; the enforce step skips a missing report.
+          [ -f coverage/lcov.info ] && sed -i 's#^SF:#SF:backend/#' coverage/lcov.info || echo "no backend coverage report (no unit tests in-repo)"
 
       - name: Storefront coverage (Vitest)
         if: needs.changes.outputs.storefront == 'true'

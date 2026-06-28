@@ -13,8 +13,8 @@
     "medusa"
   ],
   "scripts": {
-    "test": "jest --config jest.config.js",
-    "test:coverage": "jest --config jest.config.js --coverage",
+    "test": "jest --config jest.config.js --passWithNoTests",
+    "test:coverage": "jest --config jest.config.js --coverage --passWithNoTests",
     "build": "medusa build && node src/scripts/postBuild.js",
     "seed": "medusa exec ./src/scripts/seed.ts",
     "ib": "init-backend",
