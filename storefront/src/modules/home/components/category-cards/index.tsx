@@ -1,10 +1,11 @@
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
-import { getNavCategories } from "@lib/data/categories"
+import { getNavCategoriesWithImages } from "@lib/data/categories"
 import CategoryIcon from "@modules/common/icons/category-icon"
+import CategoryCardCarousel from "./card-carousel"
 import { ArrowRight } from "lucide-react"
 
-const CategoryCards = async () => {
-  const categories = await getNavCategories()
+const CategoryCards = async ({ countryCode }: { countryCode: string }) => {
+  const categories = await getNavCategoriesWithImages(countryCode)
 
   if (!categories.length) {
     return null
@@ -44,12 +45,13 @@ const CategoryCards = async () => {
             <span className="mb-4 flex h-[42px] w-[42px] items-center justify-center rounded-[16px] bg-[#eaf7fe] text-brand-cyan small:mb-10 small:h-14 small:w-14">
               <CategoryIcon name={cat.icon} className="h-5 w-5 small:h-7 small:w-7" />
             </span>
-            <h3 className="text-[15px] font-bold leading-tight tracking-tight text-brand-ink small:text-lg">
+            <h3 className="pr-12 text-[15px] font-bold leading-tight tracking-tight text-brand-ink small:pr-16 small:text-lg">
               {cat.label}
             </h3>
             <span className="mt-3 flex h-[30px] w-[30px] items-center justify-center rounded-full border-[1.5px] border-hairline text-brand-ink transition-colors group-hover:border-brand-cyan group-hover:bg-brand-cyan group-hover:text-white small:mt-4 small:h-9 small:w-9">
               <ArrowRight className="h-4 w-4" />
             </span>
+            <CategoryCardCarousel images={cat.images} index={idx} />
           </LocalizedClientLink>
         ))}
       </div>
