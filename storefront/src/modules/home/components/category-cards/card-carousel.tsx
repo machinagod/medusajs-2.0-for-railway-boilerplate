@@ -46,7 +46,7 @@ const CategoryCardCarousel = ({ images, index = 0 }: Props) => {
   return (
     <span
       aria-hidden
-      className="pointer-events-none absolute bottom-3 right-3 h-12 w-12 overflow-hidden rounded-[12px] border border-hairline bg-white shadow-[0_8px_20px_rgba(16,24,40,0.10)] small:bottom-6 small:right-6 small:h-[68px] small:w-[68px]"
+      className="pointer-events-none absolute bottom-3 right-3 h-12 w-12 small:bottom-6 small:right-6 small:h-[68px] small:w-[68px]"
     >
       {images.map((src, idx) => (
         <Image
@@ -55,7 +55,7 @@ const CategoryCardCarousel = ({ images, index = 0 }: Props) => {
           alt=""
           fill
           sizes="68px"
-          className={`object-contain p-1.5 transition-opacity duration-700 ${
+          className={`object-contain transition-opacity duration-700 ${
             idx === active ? "opacity-100" : "opacity-0"
           }`}
         />
