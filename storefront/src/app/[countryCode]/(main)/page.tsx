@@ -106,7 +106,7 @@ export default async function Home({
         <TrustBar />
       </div>
 
-      <CategoryCards />
+      <CategoryCards countryCode={countryCode} />
 
       <section>
         <div className="mb-3 flex flex-col items-start gap-1 small:mb-7 small:flex-row small:items-end small:justify-between small:gap-5">

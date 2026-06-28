@@ -1,5 +1,6 @@
 import { sdk } from "@lib/config"
 import { cache } from "react"
+import { getProductsList } from "./products"
 
 export const listCategories = cache(async function () {
   return sdk.store.category
@@ -200,4 +201,76 @@ function navSortKey(a: any, b: any): number {
 function navOrder(c: any): number {
   const v = Number(c?.metadata?.nav_order)
   return Number.isFinite(v) ? v : Number.MAX_SAFE_INTEGER
+}
+
+export type NavCategoryCard = {
+  label: string
+  href: string
+  icon: string
+  /** Up to CARD_IMAGE_COUNT primary product thumbnails for the card carousel. */
+  images: string[]
+}
+
+/** How many representative product images each home category card rotates. */
+const CARD_IMAGE_COUNT = 5
+
+/**
+ * Nav categories (same set/order as {@link getNavCategories}) enriched with a
+ * few representative product images for the home cards' bottom-right carousel.
+ * Images are the products' primary thumbnails, pulled from the category AND all
+ * of its sub-categories — most products live on the leaves, so we walk the
+ * descendant tree to collect ids. Resolved per-category in parallel; any
+ * per-category failure degrades to an empty image list (card renders, no
+ * carousel) rather than failing the whole section.
+ */
+export const getNavCategoriesWithImages = cache(async function (
+  countryCode: string
+): Promise<NavCategoryCard[]> {
+  const roots = await getRootCategories()
+  const visible = (roots || []).filter((c: any) => !isNavHidden(c))
+  return Promise.all(
+    visible.map(async (c: any) => ({
+      label: c.name as string,
+      href: `/categories/${c.handle}`,
+      icon: resolveCategoryIcon(c),
+      images: await getCategoryThumbnails(c.handle, countryCode).catch(
+        () => [] as string[]
+      ),
+    }))
+  )
+})
+
+/**
+ * Distinct primary thumbnails (up to {@link CARD_IMAGE_COUNT}) for a category
+ * and its descendants. Over-fetches a small page and de-dupes, so categories
+ * whose first products lack images still fill the carousel when possible.
+ */
+async function getCategoryThumbnails(
+  handle: string,
+  countryCode: string
+): Promise<string[]> {
+  const { product_categories } = await getCategoryByHandle([handle])
+  const root = product_categories?.[0]
+  if (!root) return []
+
+  const ids = collectCategoryIds(root)
+  if (!ids.length) return []
+
+  const {
+    response: { products },
+  } = await getProductsList({
+    queryParams: { category_id: ids, limit: 12, fields: "id,thumbnail" } as any,
+    countryCode,
+  })
+
+  const images: string[] = []
+  const seen = new Set<string>()
+  for (const p of products) {
+    const url = p.thumbnail
+    if (!url || seen.has(url)) continue
+    seen.add(url)
+    images.push(url)
+    if (images.length >= CARD_IMAGE_COUNT) break
+  }
+  return images
 }
